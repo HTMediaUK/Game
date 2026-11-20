@@ -1,4 +1,4 @@
-"""Builds sprites/dan/head_options.png: heads A, B and C side by side,
+"""Builds sprites/dan/head_options.png: heads 1, 2 and 3 side by side,
 standing and mid-run, plus each at roughly game size."""
 import sys
 from pathlib import Path
@@ -24,7 +24,7 @@ try:
     font = ImageFont.truetype("DejaVuSans-Bold.ttf", 36)
 except OSError:
     font = ImageFont.load_default()
-for i, key in enumerate("ABC"):
+for i, key in enumerate("123"):
     x0 = 20 + i * col_w
     stand = img(dan.draw(dan.LEGS["stand"], "side", head=key))
     run = img(dan.draw(dan.LEGS["contact"], "back", lean=1, head=key))

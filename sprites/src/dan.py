@@ -23,7 +23,8 @@ PALETTE = {
     "a": "#211e2b", "b": "#302c3f", "c": "#46425a",
     # tattoo sleeve ink on skin
     "t": "#6a6f86",
-    "p": "#e8907a",  # rosy cheeks
+    "p": "#e8907a",  # rosy cheeks, tongue
+    "v": "#262a40", "L": "#8fd3ff",  # sunglass lenses and glint
     "w": "#f4f4f4",  # teeth, logo centre
     # HT logo ring
     "r": "#e43b44", "Y": "#feae34", "N": "#63c74d", "P": "#b55088", "l": "#2f7fc1",
@@ -33,60 +34,54 @@ PALETTE = {
 }
 
 HEADS = {
-    # A: front-facing mascot, looks out at the player
-    "A": {
-        1:  (13, "zzyy"),
-        2:  (11, "zzzzyyyy"),
-        3:  (10, "zzzyyyyyyyx"),
-        4:  (10, "zyyyyyyyyxx"),
-        5:  (10, "yyyKKKKyyxx"),        # fringe swept to one side
-        6:  (10, "yKKKKKKKkkx"),
-        7:  (9,  "kyKxxKKKxxKyk"),      # ears, brows
-        8:  (9,  "kykkokkkokkyk"),      # eyes
-        9:  (9,  "skkkokskokkks"),      # eyes, nose
-        10: (10, "kppkkkkkppk"),        # rosy cheeks
-        11: (10, "skkswwwskks"),        # smile
-        12: (11, "skksssskks"),
-        13: (12, "sskkkss"),            # short rounded chin
-        14: (14, "sss"),
+    # 1: retro 8-bit, small head on adult proportions, minimal detail
+    "1": {
+        7:  (13, "zzyyy"),
+        8:  (12, "zyyyyyx"),
+        9:  (12, "yyyyKKk"),
+        10: (12, "yyskKok"),            # ear, dot eye
+        11: (12, "yskkkkkk"),           # small nose
+        12: (13, "skkksk"),             # mouth
+        13: (14, "skkk"),
+        14: (15, "ss"),
     },
-    # B: compact side profile, button nose, short chin
-    "B": {
-        1:  (14, "zzzy"),
-        2:  (12, "zzzzyyyy"),
-        3:  (11, "zzyyyyyyyy"),
-        4:  (10, "zyyyyyyyyyy"),
-        5:  (10, "yyyyyyyKKKK"),
-        6:  (10, "yyyyKKKKxxKk"),       # brow
-        7:  (10, "yyyksKKKwoKk"),       # ear, eye with white
-        8:  (10, "yyyskkkkwokkk"),      # button nose
-        9:  (11, "xskkkkppkkk"),        # rosy cheek
-        10: (12, "skkkkkswwk"),         # smile
-        11: (13, "skkkkss"),            # chin tucks in
-        12: (14, "sss"),
+    # 2: cool shades, tall quiff, confident grin
+    "2": {
+        1:  (15, "zzz"),
+        2:  (13, "zzzzyy"),             # tall quiff
+        3:  (12, "zzyyyyyx"),
+        4:  (11, "zyyyyyyyyx"),
+        5:  (11, "yyyyyKKKKk"),
+        6:  (11, "yyyKKKKKKkk"),
+        7:  (11, "yyksooooooo"),        # sunglasses frame
+        8:  (11, "ykskoLvoLvo"),        # lenses with a glint
+        9:  (11, "xskkkvvkvvkk"),
+        10: (12, "skkkkswwws"),         # grin
+        11: (12, "sskkkkkss"),
+        12: (13, "sskkks"),
         13: (14, "sss"),
         14: (14, "ss"),
     },
-    # C: big-head chibi, three-quarter view, big shiny eyes
-    "C": {
-        0:  (14, "zzz"),
-        1:  (12, "zzzzyyy"),
-        2:  (10, "zzzzyyyyyyy"),
-        3:  (9,  "zzyyyyyyyyyyx"),
+    # 3: big happy cartoon, spiky hair, eyes shut laughing
+    "3": {
+        0:  (11, "zz.zz.zz"),           # spikes
+        1:  (10, "zzyzzyzzyy"),
+        2:  (9,  "zzyyyyyyyyyy"),
+        3:  (9,  "zyyyyyyyyyyyx"),
         4:  (9,  "yyyyyyyyyyyyx"),
-        5:  (9,  "yyyyyKKKKyKKk"),      # fringe strand
-        6:  (9,  "yyykKKKKKKKKKk"),
-        7:  (9,  "yyskKxxKKxxKKk"),     # ear, brows
-        8:  (9,  "ykskkowkkowkkk"),     # eyes with highlights
-        9:  (9,  "xskkkookkookkk"),
-        10: (10, "skkppkkskppkk"),      # cheeks, nose
-        11: (10, "sskkkswwskkks"),      # smile
-        12: (11, "sskkksskkks"),
-        13: (12, "sskkkkkss"),          # round chin
+        5:  (9,  "yyyyKyyKKyKKx"),      # messy fringe
+        6:  (9,  "yyyKKKKKKKKKKk"),
+        7:  (9,  "yykKKKKKKKKKKk"),
+        8:  (9,  "yskkkokkkkokkk"),     # happy ^ ^ eyes
+        9:  (9,  "xskkokokkokokk"),
+        10: (10, "skppkkskkppkk"),      # cheeks, nose
+        11: (10, "sskkowwwwokks"),      # laughing mouth
+        12: (11, "skkkoppokks"),
+        13: (12, "sskkkkkss"),
         14: (14, "sss"),
     },
 }
-HEAD_CHOICE = "A"
+HEAD_CHOICE = "1"
 
 # Legs from y=25 down to the ground (y=30), columns starting at x=6.
 # Each run pose is drawn once with the near leg (J) as the stance leg;
