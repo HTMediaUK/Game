@@ -381,7 +381,25 @@ function drawLineup() {
       for (let k = 0; k < 4; k++) ctx.fillRect(x + 12 + k, y - 9 + k, 8 - 2 * k, 1);
     }
     ctx.drawImage(img, x, y);
+    // name and role on a little plate under each person
+    const cx = x + 16;
+    ctx.fillStyle = chosen ? "rgba(18,14,23,0.85)" : "rgba(18,14,23,0.6)";
+    ctx.fillRect(cx - 28, 151, 56, 28);
+    if (chosen) { ctx.fillStyle = "#f29a4a"; ctx.fillRect(cx - 28, 151, 56, 1); }
+    text(c.name, cx, 157, 7, chosen ? "#f29a4a" : "#fff");
+    wrap(c.role, 13).forEach((line, j) => text(line, cx, 165 + j * 5, 4.5, "#ffe2b0"));
   });
+}
+
+// Split a role into short lines so it fits under a character.
+function wrap(str, max) {
+  const lines = [];
+  for (const word of str.split(" ")) {
+    const last = lines[lines.length - 1];
+    if (last && (last + " " + word).length <= max) lines[lines.length - 1] = last + " " + word;
+    else lines.push(word);
+  }
+  return lines;
 }
 
 function drawWorld() {
@@ -580,13 +598,12 @@ function draw() {
     text("an HT Media game", W / 2, 32, 7, "#ffe2b0");
     const top = loadScores()[0];
     text(top ? `BEST: ${top.name} ${top.score}` : "No scores yet. Be the first!", W / 2, 46, 7, "#fff");
-    text(who().name, W / 2, 70, 12, "#fff");
-    text(who().role, W / 2, 81, 7, "#ffe2b0");
-    text("TAP SPACE: NEXT RUNNER     HOLD SPACE: PLAY", W / 2, 95, 6, "#fff");
+    text("CHOOSE YOUR RUNNER", W / 2, 70, 9, "#fff");
+    text("TAP SPACE: NEXT RUNNER     HOLD SPACE: PLAY", W / 2, 82, 6, "#ffe2b0");
     if (holdStart) {                                    // fills while Space is held
       const k = Math.min(1, (performance.now() - holdStart) / HOLD_MS);
-      ctx.fillStyle = "rgba(18,14,23,0.7)"; ctx.fillRect(W / 2 - 40, 101, 80, 4);
-      ctx.fillStyle = "#f29a4a"; ctx.fillRect(W / 2 - 39, 102, Math.round(78 * k), 2);
+      ctx.fillStyle = "rgba(18,14,23,0.7)"; ctx.fillRect(W / 2 - 40, 89, 80, 4);
+      ctx.fillStyle = "#f29a4a"; ctx.fillRect(W / 2 - 39, 90, Math.round(78 * k), 2);
     }
   }
 

@@ -23,7 +23,7 @@ BASE_LEGS = {k: dict(v) for k, v in d.LEGS.items()}
 
 EXTRA = {                                   # colours the team need beyond Dan's
     "B": "#c27840", "V": "#8e5028",         # beard
-    "g": "#d9a84a",                         # gold necklace
+    "g": "#b8893a",                         # gold necklace
     "p": "#f0a090",                         # rosy cheeks
     "q": "#efe2d0", "Q": "#6e3a2c", "R": "#a87a68",   # gingham
     "O": "#3a2e30", "L": "#e6f2f8",         # glasses rims and lens glint
@@ -52,21 +52,26 @@ BETH_HEAD = {
     4:  (9,  "zyyyyyyxyyyyyz"),
     5:  (9,  "yyyyKKKKKKKyyy"),
     6:  (9,  "yyyKKKKKKKKKyy"),
-    7:  (9,  "yzKKxxKKKxxKzy"),     # waves framing the face, brows
-    8:  (9,  "zyKKKoKKKKoKyz"),
+    7:  (9,  "yzKKKxKKKKxKzy"),     # waves framing the face, fine arched brows
+    8:  (9,  "zyKKooKKKKooyz"),     # eyes with lashes
     9:  (9,  "yzKKKoKKKKoKzy"),
     10: (9,  "zykKpKKKKsKpyz"),     # rosy cheeks
-    11: (9,  "yzkKKKKmmmKkzy"),     # smile
-    12: (9,  "zyskkkkkkkksyz"),
-    13: (9,  "yz.sskkkkss.zy"),
-    14: (9,  "zy...ssss...yz"),     # loose curls past the jaw
+    11: (9,  "yzkKKKKmmKKkzy"),     # small pink lips
+    12: (9,  "zyyskkkkkksyyz"),
+    13: (9,  "yzz.skkkks.zzy"),
+    14: (9,  "zyy..ssss..yyz"),     # long hair falling past the jaw
 }
-BETH_TORSO = dict(BASE_TORSO)
-BETH_TORSO.update({
-    16: (10, "bcbbbgbbgbbb"),       # gold chain
-    17: (11, "cbbbbggbbb"),         # pendant
-    18: (11, "cbbbbbbbbb"), 19: (11, "cbbbbbbbbb"), 20: (11, "cbbbbbbbbb"),
-})
+BETH_TORSO = {
+    15: (10, "zybbbbbbbbyz"),       # hair falling in front of her shoulders
+    16: (10, "yzbbbgbbgbzy"),       # gold chain
+    17: (11, "zybbggbbyz"),         # pendant, curl ends
+    18: (11, "cbbbbbbbbb"),
+    19: (11, "cbbbbbbbba"),
+    20: (12, "bbbbbbbb"),           # fitted at the waist
+    21: (11, "QQQQQQQQQQ"),         # high-waisted skirt with an elastic band
+    22: row_of(11, 20, 22, gingham),
+    23: row_of(10, 21, 23, gingham),
+}
 SKIRT = {24: (11, 20), 25: (10, 21), 26: (10, 21), 27: (9, 22), 28: (9, 22)}
 BETH_LEGS = {
     "stand":   {**{y: row_of(a, b, y, gingham) for y, (a, b) in SKIRT.items()},
@@ -108,7 +113,7 @@ JONAS_HEAD = {
     5:  (9,  "xyKKKKKKKKKKyx"),     # short sides
     6:  (9,  "xKKKxxKKKxxKKx"),     # brows
     7:  (9,  "kKKKOOKKKOOKKk"),     # round glasses
-    8:  (9,  "kKKOLKOOOLKOKk"),     # lenses with a glint
+    8:  (9,  "kOOOLKOOOLKOOk"),     # lenses with a glint, arms back to the ears
     9:  (9,  "skKOKoOKOKoOKs"),     # eyes inside the lenses
     10: (9,  "kKKKOOKsKOOKKh"),     # earring
     11: (10, "kkKKKKmmmKKk"),
@@ -165,7 +170,7 @@ CHARACTERS = {
                           "c": "#c9d4f2", "b": "#a8b6e0", "j": "#2c3550", "J": "#3e4a6c", **SKIN_ARMS}},
     "beth":  {"name": "Beth", "role": "Operations & Creative Coordinator", "head": BETH_HEAD,
               "torso": BETH_TORSO, "legs": BETH_LEGS,
-              "palette": {"x": "#a8803e", "y": "#dcb468", "z": "#f4dc96", **SKIN_ARMS}},
+              "palette": {"x": "#a8803e", "y": "#dcb468", "z": "#f4dc96", "m": "#e06a82", **SKIN_ARMS}},
     "sam":   {"name": "Sam", "role": "Editor", "head": SAM_HEAD,
               "palette": {"x": "#3e2416", "y": "#5e3a24", "z": "#8a5a38",
                           "B": "#7a4e34", "V": "#5a3624", **SKIN_ARMS}},
