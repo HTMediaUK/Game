@@ -21,13 +21,15 @@ from PIL import Image
 sys.path.insert(0, str(Path(__file__).parent))
 import landmarks  # noqa: E402
 
-# Client landmarks on the near hills: (left x, drawing function)
-LANDMARK_SPOTS = [(104, landmarks.hospital), (226, landmarks.old_mine)]
+# Layout of the near hills (one 320px tile). Everything has its own patch of
+# hill so nothing overlaps: buildings sit on flattened plots, cows graze on
+# gentle slopes in two small groups, and trees are spaced along one hedgerow.
+LANDMARK_SPOTS = [(58, landmarks.hospital), (204, landmarks.old_mine)]
 LANDMARK_IMAGES = [(x, fn()) for x, fn in LANDMARK_SPOTS]
-# Cows grazing in the fields (for ARN): (x, depth below the ridge, facing right?)
+PLOTS = [(x - 4, x + im.width + 3) for x, im in LANDMARK_IMAGES]   # flattened ground
 COW = landmarks.field_cow()
-COW_SPOTS = [(10, 6, False), (24, 14, True), (40, 5, False), (82, 15, True),
-             (160, 6, True), (196, 15, False), (268, 5, False), (300, 14, True)]
+COW_SPOTS = [(14, False), (30, True), (258, False), (272, True)]  # (x, facing right?)
+TREE_SPOTS = [46, 112, 160, 182, 250, 300]
 
 W, H = 320, 180
 GROUND_Y = 148
@@ -118,13 +120,31 @@ def far_ridge(x):
     return round(103 + wave(x, (6, 2, 0.0), (4, 5, 1.0), (2, 9, 2.0)))
 
 
+def _mid_raw(x):
+    return 126 + wave(x, (8, 1, 2.0), (5, 3, 0.5), (2, 7, 1.3))
+
+
+def _smooth(t):
+    return t * t * (3 - 2 * t)
+
+
 def mid_ridge(x):
-    return round(126 + wave(x, (8, 1, 2.0), (5, 3, 0.5), (2, 7, 1.3)))
+    """Near hills, levelled under each building with a smooth shoulder either side."""
+    x %= W
+    r = _mid_raw(x)
+    for a, b in PLOTS:
+        level = sum(_mid_raw(i) for i in range(a, b + 1)) / (b - a + 1)
+        if a <= x <= b:
+            return round(level)
+        if a - 12 < x < a:
+            r += (level - r) * _smooth((x - (a - 12)) / 12)
+        elif b < x < b + 12:
+            r += (level - r) * _smooth(((b + 12) - x) / 12)
+    return round(r)
 
 
-FAR_TURBINES = [(14, 18), (40, 22), (66, 16), (92, 24), (121, 18), (150, 22),
-                (176, 16), (205, 24), (232, 18), (258, 22), (284, 16), (306, 20)]
-MID_TURBINES = [(58, 34), (190, 38), (290, 32)]
+FAR_TURBINES = [(18 + i * 46, (18, 22, 16)[i % 3]) for i in range(7)]   # evenly spaced
+MID_TURBINES = [(134, 36), (314, 32)]   # in the gaps between the far ones
 
 
 def hills_far(frame):
@@ -150,16 +170,17 @@ FIELD_TYPES = {
     "rapeseed": ("#f6e57a", "#e6d25a", "#c4ad3c", "flowers"),
     "ploughed": ("#c09a68", "#a98a5c", "#846742", "furrows"),
 }
-FIELDS = ["meadow", "pasture", "grazing", "rapeseed", "meadow", "ploughed", "pasture"]
-HEDGE_ROWS = (9, 20)
-COLUMNS = [0, 34, 70, 101, 140, 172, 211, 245, 283, W]
+# Four big fields across, split once by a hedgerow: (above hedge, below hedge)
+COLUMNS = [0, 120, 196, 252, W]
+FIELDS = [("meadow", "ploughed"), ("pasture", "grazing"), ("meadow", "rapeseed"), ("grazing", "pasture")]
+HEDGE_DEPTH = 15
+HEDGE_ROWS = (HEDGE_DEPTH,)
 
 
 def field_at(x, y):
     depth = y - mid_ridge(x)
-    col_i = max(i for i, c in enumerate(COLUMNS) if c <= x)
-    row_i = 0 if depth < HEDGE_ROWS[0] else 1 if depth < HEDGE_ROWS[1] else 2
-    return FIELD_TYPES[FIELDS[(col_i * 3 + row_i * 2) % len(FIELDS)]]
+    col_i = max(i for i, c in enumerate(COLUMNS[:-1]) if c <= x)
+    return FIELD_TYPES[FIELDS[col_i][0 if depth < HEDGE_DEPTH else 1]]
 
 
 def hills_mid(frame):
@@ -176,13 +197,13 @@ def hills_mid(frame):
             light, mid, dark, texture = field_at(x, y)
             ramp = [light, mid, dark]
             shade = 0 if depth < 2 else base       # sunlit crest
-            if texture == "furrows" and depth % 3 == 0:
+            if texture == "furrows" and depth % 4 == 0:
                 shade = min(2, shade + 1)          # furrows follow the hill
-            elif texture == "stripes" and (x + depth) // 4 % 2 == 0:
+            elif texture == "stripes" and (x + depth) // 6 % 2 == 0:
                 shade = max(0, shade - 1)          # mown stripes
-            elif texture == "specks" and (x * 7 + y * 13) % 11 == 0:
+            elif texture == "specks" and (x * 7 + y * 13) % 23 == 0:
                 shade = min(2, shade + 1)          # tufts
-            elif texture == "flowers" and (x * 5 + y * 3) % 7 == 0:
+            elif texture == "flowers" and (x * 5 + y * 3) % 13 == 0:
                 shade = max(0, shade - 1)          # bright flower heads
             img.putpixel((x, y), hexc(ramp[shade]))
         img.putpixel((x, r), hexc("#c3eb98"))      # rim light on the ridge
@@ -192,14 +213,13 @@ def hills_mid(frame):
                 img.putpixel((x, r + d - 1), hexc("#4f8f3f") if leafy else hexc("#3f7a35"))
                 img.putpixel((x, r + d), hexc("#2f5f2a"))
                 img.putpixel((x, r + d + 1), hexc(field_at(x, r + d + 1)[2]))
-    for c in COLUMNS[1:-1]:                         # field boundaries down the hill
+    for c in COLUMNS[:-1]:                          # field boundaries down the hill
         for y in range(mid_ridge(c) + 1, H):
             img.putpixel((c, y), hexc("#2f5f2a"))
             img.putpixel((c + 1, y), hexc(field_at(c + 1, y)[2]))
     # trees along the hedges: shadow on the ground first, then the canopy
-    for _ in range(26):
-        x = rng.randrange(W)
-        y = mid_ridge(x) + rng.choice(HEDGE_ROWS) - 1
+    for x in TREE_SPOTS:
+        y = mid_ridge(x) + HEDGE_DEPTH - 1
         for dx in range(0, 5):
             img.putpixel(((x + dx) % W, y + 1), hexc("#2f5f2a"))
         for dx in range(-3, 4):
@@ -214,13 +234,13 @@ def hills_mid(frame):
                         col = "#3d7f39"
                     img.putpixel(((x + dx) % W, y + dy), hexc(col))
     from PIL import ImageOps
-    for x0, depth, flip in COW_SPOTS:
+    for x0, flip in COW_SPOTS:                # feet on the grass, halfway down the top field
         im = ImageOps.mirror(COW) if flip else COW
-        y = max(mid_ridge(x) for x in range(x0, x0 + im.width)) + depth
-        img.alpha_composite(im, (x0, y - im.height + 2))
-    for x0, im in LANDMARK_IMAGES:            # sit each one on the lowest point of its plot
-        base = max(mid_ridge(x) for x in range(x0, x0 + im.width)) + 3
-        img.alpha_composite(im, (x0, base - im.height))
+        feet = mid_ridge(x0 + im.width // 2) + 9
+        img.alpha_composite(im, (x0, feet - im.height + 2))
+    for x0, im in LANDMARK_IMAGES:            # stand on the flattened plot
+        base = mid_ridge(x0 + im.width // 2) + 2
+        img.alpha_composite(im, (x0, base - im.height + 1))
     for i, (x, tower) in enumerate(MID_TURBINES):
         angle = frame * TAU / 12 + i * 1.3
         turbine(img, x, mid_ridge(x) + 2, tower, tower // 3, angle,
