@@ -1,7 +1,9 @@
 """Obstacles for Dan to jump over, in the same chunky outlined style.
 
-Camera kit: tripod with camera, flight case (single and stacked), softbox light.
+Camera kit: tripod with camera, flight case (single and stacked).
+Roadworks: striped barrier with a flashing lamp.
 Animals: sheep and Friesian cow, two frames each so their legs shuffle.
+Flying: seagull and the HT drone.
 Animals face left, towards Dan. Light comes from the top left.
 
     python3 sprites/src/obstacles.py
@@ -25,6 +27,7 @@ PALETTE = {
     "p": "#f2a0a8", "P": "#d07a86",                   # pink nose, udder
     "c": "#efe3c4",                                   # horns
     "q": "#f2b632", "Q": "#c48a1e",                   # seagull beak
+    "A": "#ffbe3b", "Z": "#8a5a20",                   # roadworks lamp lit / off
 }
 
 
@@ -127,15 +130,19 @@ def flight_cases_stacked():
     return s.image()
 
 
-def softbox():
-    s = Sprite(16, 34)
-    s.rect(1, 0, 14, 11, "w"); s.rect(2, 1, 13, 10, "W")    # diffuser panel, facing us
-    s.rect(1, 0, 14, 0, "G"); s.rect(14, 0, 14, 11, "G"); s.rect(1, 11, 14, 11, "G")
-    s.rect(1, 0, 1, 11, "h")
-    s.rect(3, 2, 6, 3, "H")                                  # glow
-    s.rect(7, 12, 8, 13, "a")                                # mount
-    s.rect(7, 14, 7, 29, "h"); s.rect(8, 14, 8, 29, "G")    # pole
-    s.line(7, 29, 2, 32, "h"); s.line(8, 29, 13, 32, "G"); s.rect(7, 30, 8, 32, "G")
+def roadblock(frame):
+    """UK roadworks barrier: red-and-white striped board on A-frame legs, with an
+    amber lamp on top that flashes (frame 0 lit, frame 1 off)."""
+    s = Sprite(30, 27)
+    lamp = "A" if frame == 0 else "Z"
+    s.rect(13, 0, 16, 2, lamp); s.put(13, 0, "H" if frame == 0 else lamp)   # lamp, with a glint when lit
+    s.rect(14, 3, 15, 4, "a")                                              # lamp bracket
+    for y in range(5, 12):                                                 # striped board
+        for x in range(1, 29):
+            s.put(x, y, "r" if (x + y) // 4 % 2 else "W")
+    for x0 in (5, 23):                                                     # A-frame legs
+        s.line(x0, 12, x0 - 3, 24, "h"); s.line(x0 + 1, 12, x0 + 4, 24, "G")
+        s.rect(x0 - 4, 25, x0 + 5, 25, "a")                                # weighted feet
     return s.image()
 
 
@@ -205,15 +212,25 @@ SPRITES = {
     "tripod": [tripod()],
     "flight_case": [flight_case()],
     "flight_cases_stacked": [flight_cases_stacked()],
-    "softbox": [softbox()],
+    "roadblock": [roadblock(0), roadblock(1)],
     "sheep": [sheep(0), sheep(1)],
     "cow": [cow(0), cow(1)],
     "seagull": [seagull(0), seagull(1)],
 }
 
 
+def drone_frames():
+    """The HT drone as a flying obstacle: the two propeller frames from
+    sprites/drone/drone_sheet.png, flipped to fly left towards Dan."""
+    from PIL import ImageOps
+    sheet = Image.open(OUT.parent / "drone" / "drone_sheet.png").convert("RGBA")
+    return [ImageOps.mirror(sheet.crop((i * 24, 0, i * 24 + 24, 10))) for i in (0, 1)]
+
+
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
+    for i, im in enumerate(drone_frames()):
+        im.save(OUT / f"drone_{i}.png")
     for name, frames in SPRITES.items():
         for i, im in enumerate(frames):
             im.save(OUT / (f"{name}_{i}.png" if len(frames) > 1 else f"{name}.png"))

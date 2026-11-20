@@ -53,11 +53,11 @@ const ASSETS = {
   dan_jump_up: "sprites/dan/dan_v2_jump_up.png",
   dan_jump_down: "sprites/dan/dan_v2_jump_down.png",
   dan_land: "sprites/dan/dan_v2_land.png",
-  drone: "sprites/drone/drone_sheet.png",
   tripod: "sprites/obstacles/tripod.png",
   flight_case: "sprites/obstacles/flight_case.png",
   flight_cases_stacked: "sprites/obstacles/flight_cases_stacked.png",
-  softbox: "sprites/obstacles/softbox.png",
+  roadblock_0: "sprites/obstacles/roadblock_0.png",
+  roadblock_1: "sprites/obstacles/roadblock_1.png",
   sheep_0: "sprites/obstacles/sheep_0.png",
   sheep_1: "sprites/obstacles/sheep_1.png",
   cow_0: "sprites/obstacles/cow_0.png",
@@ -65,6 +65,8 @@ const ASSETS = {
   pie: "sprites/landmarks/pie.png",
   seagull_0: "sprites/obstacles/seagull_0.png",
   seagull_1: "sprites/obstacles/seagull_1.png",
+  drone_0: "sprites/obstacles/drone_0.png",
+  drone_1: "sprites/obstacles/drone_1.png",
   cape_run_0: "sprites/landmarks/cape_run_0.png",
   cape_run_1: "sprites/landmarks/cape_run_1.png",
   cape_up: "sprites/landmarks/cape_up.png",
@@ -93,11 +95,14 @@ const OBSTACLES = [
   { name: "sheep",                frames: ["sheep_0", "sheep_1"],   weight: 3, from: 0,   walk: 0.4 },
   { name: "flight_cases_stacked", frames: ["flight_cases_stacked"], weight: 2, from: 10 },
   { name: "cow",                  frames: ["cow_0", "cow_1"],       weight: 2, from: 8, walk: 0.25 },
-  { name: "softbox",              frames: ["softbox"],              weight: 1, from: 20 },
+  { name: "roadblock",            frames: ["roadblock_0", "roadblock_1"], weight: 2, from: 20, blink: 24 },
   // seagulls fly towards Dan: low ones at chest height (jump over them),
   // high ones at jump height (don't jump, or just tap for a small hop)
   { name: "gull_low",  frames: ["seagull_0", "seagull_1"], weight: 2, from: 15, walk: 1.0, air: GROUND_Y - 24 },
   { name: "gull_high", frames: ["seagull_0", "seagull_1"], weight: 2, from: 22, walk: 1.0, air: 80 },
+  // drones hover towards Dan more slowly, bobbing up and down as they come
+  { name: "drone_low",  frames: ["drone_0", "drone_1"], weight: 2, from: 18, walk: 0.3, air: GROUND_Y - 22, bob: 3, spin: 3 },
+  { name: "drone_high", frames: ["drone_0", "drone_1"], weight: 2, from: 28, walk: 0.3, air: 81, bob: 2, spin: 3 },
 ];
 
 // ----------------------------------------------------------------- high scores
@@ -129,6 +134,8 @@ let jumpHeld = false;
 let runClock = 0, landTimer = 0;   // run animation and the squash after landing
 let bufferedAt = -99;              // Space pressed just before landing still counts
 let runTime = 0;                   // frames since this run started (60 a second)
+let wind = [];                     // faint streaks that rush past once the run speeds up
+let take = 1, slateAt = 0;         // clapperboard: today's take number, when it dropped in
 
 // Difficulty rises with time, not distance, so every run is over in about a minute:
 //   0-15s gentle, ground only | 15s seagulls | 25s close pairs, fewer pies
@@ -148,6 +155,8 @@ function newRun() {
   pies = [];
   pieGap = 700 + Math.random() * 500;
   runTime = 0;
+  wind = [];
+  take = nextTake();
   power = 0;
   pieFlash = 0;
   state = "play";
@@ -165,24 +174,25 @@ function spawn() {
   let r = Math.random() * pool.reduce((s, o) => s + o.weight, 0);
   let kind = pool.find(o => (r -= o.weight) < 0) || pool[0];
   // a high seagull never arrives on top of a ground obstacle: you couldn't hop under it and over that
-  if (kind.name === "gull_high" && obstacles.some(o => !o.kind.air && o.x > W - 110)) {
+  const high = k => k.air !== undefined && k.air < 100;
+  if (high(kind) && obstacles.some(o => !o.kind.air && o.x > W - 110)) {
     kind = pool.find(o => !o.air) || pool[0];
   }
   const im = IMG[kind.frames[0]];
   const y = kind.air !== undefined ? kind.air : GROUND_Y - im.height + 1;
-  obstacles.push({ kind, x: W + 4, y, w: im.width, h: im.height });
+  obstacles.push({ kind, x: W + 4, y, baseY: y, w: im.width, h: im.height, phase: Math.random() * 100 });
   // gap grows with speed so jumps stay possible, but shrinks as the run goes on
   nextGap = (110 + Math.random() * 130) * (0.7 + speed / 6) * (1 - 0.4 * difficulty());
   // from 25 seconds, sometimes a second ground obstacle follows close behind:
   // clear both with one long, held jump
   if (secs() > 25 && !kind.air && Math.random() < 0.15 + 0.25 * difficulty()) {
-    const twin = OBSTACLES.filter(o => !o.air && o.name !== "softbox" && secs() >= o.from);
+    const twin = OBSTACLES.filter(o => !o.air && o.name !== "roadblock" && secs() >= o.from);
     const k2 = twin[Math.floor(Math.random() * twin.length)];
     const im2 = IMG[k2.frames[0]];
     obstacles.push({ kind: k2, x: W + 4 + im.width + 18 + speed * 4, y: GROUND_Y - im2.height + 1, w: im2.width, h: im2.height });
     nextGap += 60;
   }
-  if (kind.name === "gull_high") nextGap += 70;   // room to land after hopping under it
+  if (high(kind)) nextGap += 70;   // room to land after hopping under it
   if (power > 0) nextGap *= 1.7;   // super jumps hang longer, so leave room to land
 }
 
@@ -191,6 +201,23 @@ function hit(o) {
   const dx0 = dan.x + 10, dx1 = dan.x + 22, dy0 = dan.y + 4, dy1 = dan.y + 29;
   const ox0 = o.x + 3, ox1 = o.x + o.w - 3, oy0 = o.y + 3, oy1 = o.y + o.h;
   return dx0 < ox1 && dx1 > ox0 && dy0 < oy1 && dy1 > oy0;
+}
+
+// Which go this is today, for the "TAKE" box on the clapperboard.
+const TAKE_KEY = "ht-dans-dash-takes";
+function today() {
+  const d = new Date();
+  return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
+}
+function nextTake() {
+  let rec = { date: today(), n: 0 };
+  try {
+    const saved = JSON.parse(localStorage.getItem(TAKE_KEY) || "null");
+    if (saved && saved.date === rec.date) rec = saved;
+  } catch { /* storage blocked */ }
+  rec.n++;
+  try { localStorage.setItem(TAKE_KEY, JSON.stringify(rec)); } catch { /* storage blocked */ }
+  return rec.n;
 }
 
 function update() {
@@ -202,7 +229,9 @@ function update() {
   if (state === "name" && performance.now() - nameSince > NAME_TIMEOUT_MS) { state = "title"; obstacles = []; }
   if (state === "crash" && performance.now() - crashAt > 900) {
     state = "name";
+    slateAt = performance.now();
     obstacles = [];
+    wind = [];
     nameText = "";
     nameSince = performance.now();
   }
@@ -227,6 +256,16 @@ function update() {
     }
   }
 
+  // wind: nothing at the start, then faint streaks that build as the speed climbs
+  const gust = Math.max(0, Math.min(1, (speed - 3.6) / 3));
+  if (Math.random() < gust * 0.45) {
+    wind.push({ x: W + Math.random() * 20, y: 14 + Math.random() * 118,
+                len: 6 + Math.random() * 10 + gust * 10, vx: speed * 2.4 + 2 + Math.random() * 2,
+                a: 0.07 + 0.16 * gust * Math.random() + 0.05 });
+  }
+  for (const w of wind) w.x -= w.vx;
+  wind = wind.filter(w => w.x + w.len > 0);
+
   // about 10 frames a second, picking up gently to about 14 at top speed
   if (dan.onGround) runClock += 0.16 * Math.sqrt(speed / 2.4);
   if (landTimer > 0) landTimer--;
@@ -248,7 +287,10 @@ function update() {
   });
   if (power > 0) power--;
   if (pieFlash > 0) pieFlash--;
-  for (const o of obstacles) o.x -= speed + (o.kind.walk || 0);
+  for (const o of obstacles) {
+    o.x -= speed + (o.kind.walk || 0);
+    if (o.kind.bob) o.y = o.baseY + Math.round(Math.sin((t + o.phase) / 12) * o.kind.bob);
+  }
   obstacles = obstacles.filter(o => o.x + o.w > -4);
 
   for (const o of obstacles) {
@@ -291,6 +333,22 @@ function panel(x, y, w, h) {
   ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
 }
 
+// A golden silhouette of a Dan frame, used for the pie-power glow (made once per frame image).
+const glowCache = new Map();
+function glowOf(img) {
+  if (!glowCache.has(img)) {
+    const c = document.createElement("canvas");
+    c.width = img.width; c.height = img.height;
+    const g = c.getContext("2d");
+    g.drawImage(img, 0, 0);
+    g.globalCompositeOperation = "source-in";
+    g.fillStyle = "#ffd98a";
+    g.fillRect(0, 0, c.width, c.height);
+    glowCache.set(img, c);
+  }
+  return glowCache.get(img);
+}
+
 function drawWorld() {
   const turbine = Math.floor(t / 6) % 4;
   ctx.drawImage(IMG.sky, 0, 0);
@@ -302,16 +360,20 @@ function drawWorld() {
   tileLayer(IMG["mid_" + turbine], distance * 0.3);
   tileLayer(IMG.ground, distance);
 
+  for (const w of wind) {
+    ctx.fillStyle = `rgba(255,255,255,${w.a.toFixed(3)})`;
+    ctx.fillRect(Math.round(w.x), Math.round(w.y), Math.round(w.len), 1);
+  }
   for (const p of (state === "play" || state === "crash") ? pies : []) {
     ctx.drawImage(IMG.pie, Math.round(p.x), Math.round(p.y + Math.sin(t / 10) * 1.5));
   }
   for (const o of obstacles || []) {
     const f = o.kind.frames;
-    const im = IMG[f[Math.floor(t / 10) % f.length]];
+    const im = IMG[f[Math.floor(t / (o.kind.blink || o.kind.spin || 10)) % f.length]];
     ctx.drawImage(im, Math.round(o.x), o.y);
   }
 
-  // Dan and his drone
+  // Dan
   const menu = state === "title" || state === "board" || state === "name";
   const d = menu ? { x: 18, y: GROUND_Y - 30, onGround: true } : dan;
   let danImg = IMG.dan_stand;
@@ -327,10 +389,14 @@ function drawWorld() {
     const cape = !d.onGround ? (d.vy < 0 ? IMG.cape_up : IMG.cape_down) : IMG["cape_run_" + Math.floor(t / 6) % 2];
     ctx.drawImage(cape, Math.round(d.x - 6), Math.round(d.y + 5));
   }
+  if (power > 0 && (state === "play" || state === "crash")) {
+    // subtle golden glow round Dan while he's super, gently pulsing
+    ctx.globalAlpha = 0.35 + 0.15 * Math.sin(t / 8);
+    const glow = glowOf(danImg);
+    for (const [gx, gy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) ctx.drawImage(glow, Math.round(d.x) + gx, Math.round(d.y) + gy);
+    ctx.globalAlpha = 1;
+  }
   ctx.drawImage(danImg, Math.round(d.x), Math.round(d.y));
-  const bob = Math.round(Math.sin(t / 12) * 2);
-  ctx.drawImage(IMG.drone, (Math.floor(t / 3) % 2) * 24, 0, 24, 10,
-                Math.round(d.x + 6), Math.max(1, Math.round(d.y - 26 + bob)), 24, 10);
 }
 
 function drawHud() {
@@ -346,6 +412,102 @@ function drawHud() {
   if (pieFlash > 0) text("PIE POWER! SUPER JUMP!", W / 2, 50, 10, "#ffd98a");
   text(`SCORE ${String(score).padStart(5, "0")}`, W - 6, 10, 8, "#fff", "right");
   text(`BEST ${String(Math.max(bestScore(), score)).padStart(5, "0")}`, W - 6, 20, 7, "#ffe2b0", "right");
+}
+
+// ----------------------------------------------------------------- clapperboard
+const CHALK = "#f2efe6", SLATE = "#1d1b22", CHALK_DIM = "#8f8a99";
+let stripeCache = null;
+function stripes(w, h) {
+  // black and white diagonal blocks, like the top of a film clapper
+  if (stripeCache && stripeCache.width === w && stripeCache.height === h) return stripeCache;
+  const c = document.createElement("canvas");
+  c.width = w; c.height = h;
+  const g = c.getContext("2d");
+  for (let x = 0; x < w; x++) for (let y = 0; y < h; y++) {
+    g.fillStyle = Math.floor((x + y) / 8) % 2 ? "#f4f4f4" : "#16141a";
+    g.fillRect(x, y, 1, 1);
+  }
+  stripeCache = c;
+  return c;
+}
+
+function label(str, x, y) {
+  ctx.font = 'bold 5px ui-monospace, "Cascadia Mono", Consolas, "Courier New", monospace';
+  ctx.textAlign = "left";
+  ctx.textBaseline = "top";
+  ctx.fillStyle = CHALK_DIM;
+  ctx.fillText(str, x, y);
+}
+
+function chalkLine(x0, y0, x1, y1) {
+  ctx.fillStyle = CHALK;
+  if (y0 === y1) ctx.fillRect(x0, y0, x1 - x0, 1);
+  else ctx.fillRect(x0, y0, 1, y1 - y0);
+}
+
+// Slate with its striped clapper. `clap` runs from 0 (open) to 1 (snapped shut).
+function slate(x, y, w, h, clap) {
+  ctx.fillStyle = "rgba(18,14,23,0.45)";
+  ctx.fillRect(x + 3, y + 12, w, h - 9);              // drop shadow
+  ctx.fillStyle = SLATE;
+  ctx.fillRect(x, y + 9, w, h - 9);                    // the board
+  ctx.drawImage(stripes(w, 8), x, y + 10);             // fixed striped bar
+  ctx.save();                                          // hinged clapper stick
+  ctx.translate(x, y + 9);
+  ctx.rotate(-0.5 * (1 - clap));
+  ctx.drawImage(stripes(w, 8), 0, -9);
+  ctx.restore();
+  ctx.fillStyle = "#8f8a99";
+  ctx.fillRect(x, y + 1, 4, 17);                       // hinge
+  ctx.strokeStyle = CHALK;
+  ctx.lineWidth = 1;
+  ctx.strokeRect(x + 3.5, y + 21.5, w - 7, h - 25);    // chalk frame
+}
+
+function easeOut(t) { return 1 - Math.pow(1 - Math.min(1, Math.max(0, t)), 3); }
+
+function drawEndCard() {
+  const ms = performance.now() - slateAt;
+  const drop = easeOut(ms / 220);                      // falls into place...
+  const clap = easeOut((ms - 260) / 120);              // ...then the clapper snaps shut
+  const x = 62, w = 196, h = 128;
+  const y = Math.round(22 - (1 - drop) * 160);
+  slate(x, y, w, h, clap);
+  const L = x + 4, R = x + w - 4, top = y + 22;
+
+  // PROD.
+  label("PROD.", L + 3, top + 2);
+  text("DAN'S DASH", W / 2 + 8, top + 11, 11, CHALK);
+  chalkLine(L, top + 19, R);
+  // SCORE | TAKE | DATE
+  const c1 = L + Math.round((R - L) * 0.42), c2 = L + Math.round((R - L) * 0.64);
+  chalkLine(c1, top + 19, c1, top + 47);
+  chalkLine(c2, top + 19, c2, top + 47);
+  label("SCORE", L + 3, top + 22);
+  text(String(score), (L + c1) / 2, top + 36, 13, "#ffd98a");
+  label("TAKE", c1 + 3, top + 22);
+  text(String(take), (c1 + c2) / 2, top + 36, 11, CHALK);
+  label("DATE", c2 + 3, top + 22);
+  text(today(), (c2 + R) / 2, top + 36, 7, CHALK);
+  chalkLine(L, top + 47, R);
+  // DIRECTOR: the player's name
+  label("DIRECTOR (TYPE YOUR NAME)", L + 3, top + 50);
+  const cursor = Math.floor(t / 20) % 2 === 0 ? "_" : " ";
+  text(nameText ? nameText + cursor : cursor, W / 2, top + 68, 12, CHALK);
+  chalkLine(L + 14, top + 77, R - 14);
+  text("PRESS ENTER TO SAVE", W / 2, top + 92, 7, nameText.trim() ? CHALK : CHALK_DIM);
+}
+
+function drawScoreSlate() {
+  const x = 66, w = 188, h = 150, y = 6;
+  slate(x, y, w, h, 1);
+  const L = x + 4, R = x + w - 4, top = y + 22;
+  label(`TAKE ${take}`, L + 3, top + 2);
+  text(boardRank >= 0 ? `You're number ${boardRank + 1}!` : "Nice try!", W / 2, top + 11, 10, "#ffd98a");
+  chalkLine(L, top + 19, R);
+  label("HIGH SCORES", L + 3, top + 22);
+  drawTable(x + 44, top + 33, boardRank);
+  if (Math.floor(t / 30) % 2 === 0) text("PRESS SPACE TO PLAY AGAIN", W / 2, 168, 8, "#fff");
 }
 
 function drawTable(x, y, highlight) {
@@ -383,27 +545,8 @@ function draw() {
     if (Math.floor(t / 30) % 2 === 0) text("PRESS SPACE TO PLAY", W / 2, 138, 8, "#fff");
   }
 
-  if (state === "name") {
-    panel(60, 30, 200, 96);
-    text("GAME OVER", W / 2, 44, 14, "#f29a4a");
-    text(`You scored ${score}`, W / 2, 60, 9, "#fff");
-    text("Type your name for the high scores:", W / 2, 76, 7, "#ffe2b0");
-    ctx.fillStyle = "#fff";
-    ctx.fillRect(90, 84, 140, 16);
-    ctx.fillStyle = "#120e17";
-    ctx.fillRect(91, 85, 138, 14);
-    const cursor = Math.floor(t / 20) % 2 === 0 ? "_" : " ";
-    text(nameText + cursor, W / 2, 92.5, 9, "#fff");
-    text("Press ENTER to save", W / 2, 112, 7, nameText.trim() ? "#fff" : "#8a8494");
-  }
-
-  if (state === "board") {
-    panel(70, 14, 180, 136);
-    text(boardRank >= 0 ? `You're number ${boardRank + 1}!` : "Nice try!", W / 2, 28, 11, "#f29a4a");
-    text("HIGH SCORES", W / 2, 42, 8, "#fff");
-    drawTable(112, 54, boardRank);
-    if (Math.floor(t / 30) % 2 === 0) text("PRESS SPACE TO PLAY AGAIN", W / 2, 144, 7, "#fff");
-  }
+  if (state === "name") drawEndCard();
+  if (state === "board") drawScoreSlate();
 }
 
 // ----------------------------------------------------------------- input
