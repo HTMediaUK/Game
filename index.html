@@ -8,17 +8,18 @@
   :root { --bg: #0e0c12; }
   html, body { margin: 0; height: 100%; background: var(--bg); overflow: hidden; }
   body { display: grid; place-items: center; }
-  canvas { display: block; image-rendering: pixelated; image-rendering: crisp-edges; cursor: none; }
+  canvas { display: block; image-rendering: pixelated; image-rendering: crisp-edges; cursor: none; outline: none; }
 </style>
 </head>
 <body>
-<canvas id="game" aria-label="Dan's Dash: press space to jump"></canvas>
+<canvas id="game" tabindex="0" aria-label="Dan's Dash: press space to jump"></canvas>
 <script>
 "use strict";
 // ---------------------------------------------------------------------------
 // Dan's Dash: HT Media's expo stand game.
 // Plain JavaScript, no engine, no internet needed. Open index.html in Chrome.
-//   Space / Up / click  jump (hold for a higher jump)
+//   Space               start, and jump (tap for a hop, hold for a big jump)
+//   Enter               save your name at the end of a run
 //   F                   full screen
 //   Ctrl+Alt+R          clear the high score table (asks first)
 // Collect a pie to jump twice as high for 10 seconds (and bounce off things you land on).
@@ -62,6 +63,12 @@ const ASSETS = {
   cow_0: "sprites/obstacles/cow_0.png",
   cow_1: "sprites/obstacles/cow_1.png",
   pie: "sprites/landmarks/pie.png",
+  seagull_0: "sprites/obstacles/seagull_0.png",
+  seagull_1: "sprites/obstacles/seagull_1.png",
+  cape_run_0: "sprites/landmarks/cape_run_0.png",
+  cape_run_1: "sprites/landmarks/cape_run_1.png",
+  cape_up: "sprites/landmarks/cape_up.png",
+  cape_down: "sprites/landmarks/cape_down.png",
   plane: "sprites/landmarks/plane.png",
 };
 const RUN_FRAMES = 6;
@@ -79,14 +86,18 @@ function loadAll() {
   })));
 }
 
-// Obstacles: frames, how often they appear, and when they start appearing.
+// Obstacles: frames, how often they appear, and when (seconds into a run) they start.
 const OBSTACLES = [
   { name: "tripod",               frames: ["tripod"],               weight: 3, from: 0 },
   { name: "flight_case",          frames: ["flight_case"],          weight: 3, from: 0 },
   { name: "sheep",                frames: ["sheep_0", "sheep_1"],   weight: 3, from: 0,   walk: 0.4 },
-  { name: "flight_cases_stacked", frames: ["flight_cases_stacked"], weight: 2, from: 150 },
-  { name: "cow",                  frames: ["cow_0", "cow_1"],       weight: 2, from: 250, walk: 0.25 },
-  { name: "softbox",              frames: ["softbox"],              weight: 1, from: 400 },
+  { name: "flight_cases_stacked", frames: ["flight_cases_stacked"], weight: 2, from: 10 },
+  { name: "cow",                  frames: ["cow_0", "cow_1"],       weight: 2, from: 8, walk: 0.25 },
+  { name: "softbox",              frames: ["softbox"],              weight: 1, from: 20 },
+  // seagulls fly towards Dan: low ones at chest height (jump over them),
+  // high ones at jump height (don't jump, or just tap for a small hop)
+  { name: "gull_low",  frames: ["seagull_0", "seagull_1"], weight: 2, from: 15, walk: 1.0, air: GROUND_Y - 24 },
+  { name: "gull_high", frames: ["seagull_0", "seagull_1"], weight: 2, from: 22, walk: 1.0, air: 80 },
 ];
 
 // ----------------------------------------------------------------- high scores
@@ -116,6 +127,14 @@ let t = 0;                      // frames since the page started
 let speed, distance, score, obstacles, nextGap, dan, crashAt, nameText, nameSince, boardRank, boardSince;
 let jumpHeld = false;
 let runClock = 0, landTimer = 0;   // run animation and the squash after landing
+let bufferedAt = -99;              // Space pressed just before landing still counts
+let runTime = 0;                   // frames since this run started (60 a second)
+
+// Difficulty rises with time, not distance, so every run is over in about a minute:
+//   0-15s gentle, ground only | 15s seagulls | 25s close pairs, fewer pies
+//   40s no more pies | 50s+ speed keeps climbing past what people can react to
+function secs() { return runTime / 60; }
+function difficulty() { return Math.min(1, secs() / 50); }
 let pies = [], pieGap = 0, power = 0, pieFlash = 0;
 const POWER_FRAMES = 600;        // pie power lasts 10 seconds
 
@@ -128,6 +147,7 @@ function newRun() {
   dan = { x: 50, y: GROUND_Y - 30, vy: 0, onGround: true };
   pies = [];
   pieGap = 700 + Math.random() * 500;
+  runTime = 0;
   power = 0;
   pieFlash = 0;
   state = "play";
@@ -141,13 +161,28 @@ function jump() {
 }
 
 function spawn() {
-  const pool = OBSTACLES.filter(o => score >= o.from);
+  const pool = OBSTACLES.filter(o => secs() >= o.from);
   let r = Math.random() * pool.reduce((s, o) => s + o.weight, 0);
-  const kind = pool.find(o => (r -= o.weight) < 0) || pool[0];
+  let kind = pool.find(o => (r -= o.weight) < 0) || pool[0];
+  // a high seagull never arrives on top of a ground obstacle: you couldn't hop under it and over that
+  if (kind.name === "gull_high" && obstacles.some(o => !o.kind.air && o.x > W - 110)) {
+    kind = pool.find(o => !o.air) || pool[0];
+  }
   const im = IMG[kind.frames[0]];
-  obstacles.push({ kind, x: W + 4, y: GROUND_Y - im.height + 1, w: im.width, h: im.height });
-  // gap grows with speed so jumps stay fair
-  nextGap = (110 + Math.random() * 130) * (0.7 + speed / 6);
+  const y = kind.air !== undefined ? kind.air : GROUND_Y - im.height + 1;
+  obstacles.push({ kind, x: W + 4, y, w: im.width, h: im.height });
+  // gap grows with speed so jumps stay possible, but shrinks as the run goes on
+  nextGap = (110 + Math.random() * 130) * (0.7 + speed / 6) * (1 - 0.4 * difficulty());
+  // from 25 seconds, sometimes a second ground obstacle follows close behind:
+  // clear both with one long, held jump
+  if (secs() > 25 && !kind.air && Math.random() < 0.15 + 0.25 * difficulty()) {
+    const twin = OBSTACLES.filter(o => !o.air && o.name !== "softbox" && secs() >= o.from);
+    const k2 = twin[Math.floor(Math.random() * twin.length)];
+    const im2 = IMG[k2.frames[0]];
+    obstacles.push({ kind: k2, x: W + 4 + im.width + 18 + speed * 4, y: GROUND_Y - im2.height + 1, w: im2.width, h: im2.height });
+    nextGap += 60;
+  }
+  if (kind.name === "gull_high") nextGap += 70;   // room to land after hopping under it
   if (power > 0) nextGap *= 1.7;   // super jumps hang longer, so leave room to land
 }
 
@@ -173,15 +208,23 @@ function update() {
   }
   if (state !== "play") return;
 
-  speed = Math.min(6.2, 2.4 + distance / 2500);
+  runTime++;
+  // speed: 2.6 at the start, about 7 at 50 seconds, then it keeps on climbing
+  speed = 2.6 + 4.4 * Math.pow(difficulty(), 1.3) + Math.max(0, secs() - 50) * 0.12;
   distance += speed;
   score = Math.floor(distance / 10);
 
-  // jump physics; letting go early gives a shorter hop
+  // Jump easing: float up while Space is held (let go early for a short hop),
+  // hang for a moment at the top, then fall a little quicker than the rise.
   if (!dan.onGround) {
-    dan.vy += jumpHeld && dan.vy < 0 ? 0.24 : 0.42;
+    let g = dan.vy < 0 ? (jumpHeld ? 0.26 : 0.65) : 0.36;
+    if (Math.abs(dan.vy) < 1) g *= 0.45;
+    dan.vy = Math.min(dan.vy + g, 6.5);
     dan.y += dan.vy;
-    if (dan.y >= GROUND_Y - 30) { dan.y = GROUND_Y - 30; dan.vy = 0; dan.onGround = true; landTimer = 6; }
+    if (dan.y >= GROUND_Y - 30) {
+      dan.y = GROUND_Y - 30; dan.vy = 0; dan.onGround = true; landTimer = 6;
+      if (t - bufferedAt <= 8 && jumpHeld) jump();   // pressed just before landing
+    }
   }
 
   // about 10 frames a second, picking up gently to about 14 at top speed
@@ -193,9 +236,9 @@ function update() {
 
   // pies float at jump height, in gaps between obstacles
   pieGap -= speed;
-  if (pieGap <= 0 && !obstacles.some(o => o.x > W - 70)) {
+  if (pieGap <= 0 && secs() < 40 && !obstacles.some(o => o.x > W - 70)) {
     pies.push({ x: W + 4, y: GROUND_Y - 64 });
-    pieGap = 1100 + Math.random() * 900;
+    pieGap = (1100 + Math.random() * 900) * (1 + 1.5 * difficulty());   // rarer as the run goes on
   }
   for (const p of pies) p.x -= speed;
   pies = pies.filter(p => {
@@ -279,6 +322,11 @@ function drawWorld() {
   } else if (state === "title" || state === "board") {
     danImg = IMG["dan_run_" + Math.floor(t / 6) % RUN_FRAMES];
   }
+  if (power > 0 && (state === "play" || state === "crash") && (power > 120 || Math.floor(t / 6) % 2)) {
+    // superhero cape while pie power lasts (it flickers in the last two seconds)
+    const cape = !d.onGround ? (d.vy < 0 ? IMG.cape_up : IMG.cape_down) : IMG["cape_run_" + Math.floor(t / 6) % 2];
+    ctx.drawImage(cape, Math.round(d.x - 6), Math.round(d.y + 5));
+  }
   ctx.drawImage(danImg, Math.round(d.x), Math.round(d.y));
   const bob = Math.round(Math.sin(t / 12) * 2);
   ctx.drawImage(IMG.drone, (Math.floor(t / 3) % 2) * 24, 0, 24, 10,
@@ -332,7 +380,7 @@ function draw() {
     text("an HT Media game", W / 2, 46, 7, "#ffe2b0");
     text("HIGH SCORES", W / 2, 60, 8, "#fff");
     drawTable(112, 72, -1);
-    if (Math.floor(t / 30) % 2 === 0) text("PRESS SPACE OR CLICK TO PLAY", W / 2, 138, 8, "#fff");
+    if (Math.floor(t / 30) % 2 === 0) text("PRESS SPACE TO PLAY", W / 2, 138, 8, "#fff");
   }
 
   if (state === "name") {
@@ -354,14 +402,14 @@ function draw() {
     text(boardRank >= 0 ? `You're number ${boardRank + 1}!` : "Nice try!", W / 2, 28, 11, "#f29a4a");
     text("HIGH SCORES", W / 2, 42, 8, "#fff");
     drawTable(112, 54, boardRank);
-    if (Math.floor(t / 30) % 2 === 0) text("SPACE OR CLICK TO PLAY AGAIN", W / 2, 144, 7, "#fff");
+    if (Math.floor(t / 30) % 2 === 0) text("PRESS SPACE TO PLAY AGAIN", W / 2, 144, 7, "#fff");
   }
 }
 
 // ----------------------------------------------------------------- input
 function pressStart() {
   if (state === "title" || state === "board") { newRun(); jumpHeld = false; }
-  else if (state === "play") { jumpHeld = true; jump(); }
+  else if (state === "play") { jumpHeld = true; if (!dan.onGround) bufferedAt = t; jump(); }
 }
 
 addEventListener("keydown", e => {
@@ -389,16 +437,16 @@ addEventListener("keydown", e => {
     else document.exitFullscreen?.();
     return;
   }
-  if ((e.key === " " || e.key === "ArrowUp" || e.key === "Enter") && !e.repeat) {
+  if (e.key === " " && !e.repeat) {
     e.preventDefault();
     pressStart();
   }
 });
 addEventListener("keyup", e => {
-  if (e.key === " " || e.key === "ArrowUp") jumpHeld = false;
+  if (e.key === " ") jumpHeld = false;
 });
-canvas.addEventListener("pointerdown", () => { if (state !== "name") pressStart(); });
-addEventListener("pointerup", () => { jumpHeld = false; });
+// The game is played with Space only. A click just gives the page keyboard focus.
+canvas.addEventListener("pointerdown", () => canvas.focus());
 
 // ----------------------------------------------------------------- main loop
 // Fixed 60 updates a second, whatever the screen's refresh rate.

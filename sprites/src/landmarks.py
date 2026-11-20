@@ -23,6 +23,7 @@ obstacles.PALETTE.update({
     "m": "#6a6f80", "M": "#4a4e5e",                   # roof slate / steel
     "t": "#9a6a40", "T": "#74492a",                   # timber boards
     "u": "#e8a24a", "U": "#b8722e", "i": "#ffd98a",   # pie crust
+    "x": "#f06a5a", "y": "#d83a3a", "z": "#9c2430",   # superhero cape
 })
 
 OUT = Path(__file__).resolve().parents[1] / "landmarks"
@@ -119,10 +120,42 @@ def pie():
     return im
 
 
+def cape(mode, phase=0.0):
+    """Red cape worn with pie power. 22x22; the collar sits at (18, 10), which the
+    game pins to Dan's shoulders. mode: run (ripples behind), up (hangs down while
+    rising) or down (flies up while falling)."""
+    import math
+    s = Sprite(22, 22)
+    for x in range(2, 19):
+        k = 18 - x                                      # distance back from the collar
+        if mode == "run":
+            top = 10 + k * 0.15
+            bot = 14 + k * 0.25 + 1.6 * math.sin(k / 2.2 + phase)
+        elif mode == "up":
+            if k > 7:
+                continue
+            top = 10 + k * 0.1
+            bot = 16 + k * 0.6 + math.sin(k + phase)
+        else:                                           # falling: the cape lifts
+            if k > 13:
+                continue
+            top = 10 - k * 0.55
+            bot = top + 4 + k * 0.15 + math.sin(k / 2 + phase)
+        top, bot = round(top), round(bot)
+        for y in range(top, bot + 1):
+            s.put(x, y, "x" if y == top else "z" if y >= bot - 1 else "y")
+    s.rect(16, 9, 18, 10, "z")                          # collar
+    return s.image()
+
+
 LANDMARKS = {"hospital": hospital, "old_mine": old_mine, "field_cow": field_cow}
 
 if __name__ == "__main__":
     OUT.mkdir(parents=True, exist_ok=True)
     for name, fn in {**LANDMARKS, "plane": plane, "pie": pie}.items():
         fn().save(OUT / f"{name}.png")
+    cape("run", 0).save(OUT / "cape_run_0.png")
+    cape("run", 2.2).save(OUT / "cape_run_1.png")
+    cape("up", 0).save(OUT / "cape_up.png")
+    cape("down", 0).save(OUT / "cape_down.png")
     print(f"wrote landmarks to {OUT}")

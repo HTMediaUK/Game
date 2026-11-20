@@ -24,6 +24,7 @@ PALETTE = {
     "k": "#26222c", "K": "#3d3845",                   # cow patches
     "p": "#f2a0a8", "P": "#d07a86",                   # pink nose, udder
     "c": "#efe3c4",                                   # horns
+    "q": "#f2b632", "Q": "#c48a1e",                   # seagull beak
 }
 
 
@@ -182,6 +183,24 @@ def cow(frame):
     return s.image()
 
 
+def seagull(frame):
+    """North East seagull, flying left towards Dan. Frame 0 wings up, 1 wings down."""
+    s = Sprite(18, 12)
+    s.blob(9, 6, 5.5, 2.2, "W"); s.rect(5, 7, 13, 7, "w")       # body
+    s.rect(2, 4, 5, 6, "W"); s.put(3, 4, "k")                   # head and eye
+    s.rect(0, 5, 1, 5, "q"); s.put(1, 6, "Q")                   # beak
+    s.rect(14, 5, 16, 6, "w"); s.put(16, 5, "k")                # tail
+    # broad grey wing with black tips: up on frame 0, down on frame 1
+    wing = [(3, 6, 12), (2, 7, 13), (1, 9, 13), (0, 11, 14)] if frame == 0 else \
+           [(8, 6, 12), (9, 7, 13), (10, 9, 14), (11, 11, 14)]
+    for y, x0, x1 in wing:
+        s.rect(x0, y, x1, y, "h")
+        s.put(x1, y, "G")
+    tip = 0 if frame == 0 else 11
+    s.rect(11, tip, 14, tip, "k")
+    return s.image()
+
+
 SPRITES = {
     "tripod": [tripod()],
     "flight_case": [flight_case()],
@@ -189,6 +208,7 @@ SPRITES = {
     "softbox": [softbox()],
     "sheep": [sheep(0), sheep(1)],
     "cow": [cow(0), cow(1)],
+    "seagull": [seagull(0), seagull(1)],
 }
 
 

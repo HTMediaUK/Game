@@ -18,16 +18,34 @@ Alt+F4 closes it.
 
 ## Controls
 
+The game is played with the **spacebar** only.
+
 | Key | What it does |
 |---|---|
-| Space, Up arrow or click | Start, and jump. Hold for a higher jump |
+| Space | Start, and jump. Tap for a small hop, hold for a big jump |
 | Type, then Enter | Add your name to the high scores at the end of a run |
 | F | Full screen on or off |
 | Ctrl+Alt+R | Clear the high score table (asks first) |
 
+## Getting harder
+
+Every run gets harder with time, so nobody plays for much more than a minute:
+
+| From | What changes |
+|---|---|
+| Start | Tripods, flight cases and sheep at a gentle pace |
+| 8 to 20 seconds | Cows, stacked cases and the softbox join in |
+| 15 seconds | Low seagulls: jump over them |
+| 22 seconds | High seagulls: don't jump, or just tap for a small hop underneath |
+| 25 seconds | Pairs of obstacles close together: one long, held jump clears both |
+| 40 seconds | No more pies |
+| 50 seconds | The speed keeps climbing until you crash |
+
+The speed rises the whole time and the gaps between obstacles shrink.
+
 ## Pie power
 
-Every so often a pie floats past at jump height. Grab it and Dan jumps twice as high for 10 seconds (the timer is at the top of the screen). While powered up he bounces off anything he lands on.
+Every so often a pie floats past at jump height. Grab it and Dan puts on a superhero cape and jumps twice as high for 10 seconds (the timer is at the top of the screen). While powered up he bounces off anything he lands on. Pies get rarer as the run goes on.
 
 ## Client cameos
 
