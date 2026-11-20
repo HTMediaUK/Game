@@ -322,7 +322,7 @@ function draw() {
     text("an HT Media game", W / 2, 46, 7, "#ffe2b0");
     text("HIGH SCORES", W / 2, 60, 8, "#fff");
     drawTable(112, 72, -1);
-    if (Math.floor(t / 30) % 2 === 0) text("PRESS SPACE TO PLAY", W / 2, 138, 8, "#fff");
+    if (Math.floor(t / 30) % 2 === 0) text("PRESS SPACE OR CLICK TO PLAY", W / 2, 138, 8, "#fff");
   }
 
   if (state === "name") {
@@ -344,7 +344,7 @@ function draw() {
     text(boardRank >= 0 ? `You're number ${boardRank + 1}!` : "Nice try!", W / 2, 28, 11, "#f29a4a");
     text("HIGH SCORES", W / 2, 42, 8, "#fff");
     drawTable(112, 54, boardRank);
-    if (Math.floor(t / 30) % 2 === 0) text("PRESS SPACE TO PLAY AGAIN", W / 2, 144, 7, "#fff");
+    if (Math.floor(t / 30) % 2 === 0) text("SPACE OR CLICK TO PLAY AGAIN", W / 2, 144, 7, "#fff");
   }
 }
 
