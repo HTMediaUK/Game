@@ -15,7 +15,7 @@ W = H = 32
 
 PALETTE = {
     "o": "#120e17",  # outline (darker than anything in the sprite)
-    # ginger hair and beard: shadows cooler, highlights warmer
+    # ginger hair: shadows cooler, highlights warmer
     "x": "#8a4a26", "y": "#c97b3c", "z": "#f0ac5a",   # hair
     # skin
     "s": "#b8705a", "k": "#eaa883", "K": "#ffd3ad",
@@ -23,6 +23,7 @@ PALETTE = {
     "a": "#211e2b", "b": "#302c3f", "c": "#46425a",
     # tattoo sleeve ink on skin
     "t": "#6a6f86",
+    "p": "#e8907a",  # rosy cheeks
     "w": "#f4f4f4",  # teeth, logo centre
     # HT logo ring
     "r": "#e43b44", "Y": "#feae34", "N": "#63c74d", "P": "#b55088", "l": "#2f7fc1",
@@ -31,22 +32,61 @@ PALETTE = {
     "f": "#2a2433", "F": "#d8dee9",
 }
 
-HEAD = {
-    1:  (15, "zzyy"),               # swept-up ginger quiff
-    2:  (12, "zzzzyyyyy"),
-    3:  (11, "zzyyyyyyyyy"),
-    4:  (10, "zyyyyyyyyxKK"),
-    5:  (10, "yyyyyyyxKKKKk"),
-    6:  (10, "yykkxKKxxkxx"),       # ear, sideburn, brows
-    7:  (10, "yyksxkkoKkokk"),      # eyes
-    8:  (10, "yxskxkkKkkKkk"),      # cheeks lift under the eyes
-    9:  (11, "xskkkkkkkkkk"),
-    10: (12, "sskkkkswwsk"),        # small grin
-    11: (12, "sskkkkkssk"),         # lower lip, chin
-    12: (13, "sskkkkks"),           # jawline
-    13: (14, "sss"),                # neck
-    14: (14, "ss"),
+HEADS = {
+    # A: front-facing mascot, looks out at the player
+    "A": {
+        1:  (13, "zzyy"),
+        2:  (11, "zzzzyyyy"),
+        3:  (10, "zzzyyyyyyyx"),
+        4:  (10, "zyyyyyyyyxx"),
+        5:  (10, "yyyKKKKyyxx"),        # fringe swept to one side
+        6:  (10, "yKKKKKKKkkx"),
+        7:  (9,  "kyKxxKKKxxKyk"),      # ears, brows
+        8:  (9,  "kykkokkkokkyk"),      # eyes
+        9:  (9,  "skkkokskokkks"),      # eyes, nose
+        10: (10, "kppkkkkkppk"),        # rosy cheeks
+        11: (10, "skkswwwskks"),        # smile
+        12: (11, "skksssskks"),
+        13: (12, "sskkkss"),            # short rounded chin
+        14: (14, "sss"),
+    },
+    # B: compact side profile, button nose, short chin
+    "B": {
+        1:  (14, "zzzy"),
+        2:  (12, "zzzzyyyy"),
+        3:  (11, "zzyyyyyyyy"),
+        4:  (10, "zyyyyyyyyyy"),
+        5:  (10, "yyyyyyyKKKK"),
+        6:  (10, "yyyyKKKKxxKk"),       # brow
+        7:  (10, "yyyksKKKwoKk"),       # ear, eye with white
+        8:  (10, "yyyskkkkwokkk"),      # button nose
+        9:  (11, "xskkkkppkkk"),        # rosy cheek
+        10: (12, "skkkkkswwk"),         # smile
+        11: (13, "skkkkss"),            # chin tucks in
+        12: (14, "sss"),
+        13: (14, "sss"),
+        14: (14, "ss"),
+    },
+    # C: big-head chibi, three-quarter view, big shiny eyes
+    "C": {
+        0:  (14, "zzz"),
+        1:  (12, "zzzzyyy"),
+        2:  (10, "zzzzyyyyyyy"),
+        3:  (9,  "zzyyyyyyyyyyx"),
+        4:  (9,  "yyyyyyyyyyyyx"),
+        5:  (9,  "yyyyyKKKKyKKk"),      # fringe strand
+        6:  (9,  "yyykKKKKKKKKKk"),
+        7:  (9,  "yyskKxxKKxxKKk"),     # ear, brows
+        8:  (9,  "ykskkowkkowkkk"),     # eyes with highlights
+        9:  (9,  "xskkkookkookkk"),
+        10: (10, "skkppkkskppkk"),      # cheeks, nose
+        11: (10, "sskkkswwskkks"),      # smile
+        12: (11, "sskkksskkks"),
+        13: (12, "sskkkkkss"),          # round chin
+        14: (14, "sss"),
+    },
 }
+HEAD_CHOICE = "A"
 
 # Legs from y=25 down to the ground (y=30), columns starting at x=6.
 # Each run pose is drawn once with the near leg (J) as the stance leg;
@@ -110,7 +150,7 @@ def swap_legs(rows):
     return [r.translate(table) for r in rows]
 
 
-def draw(legs, arm, bob=0, lean=0):
+def draw(legs, arm, bob=0, lean=0, head=None):
     grid = [["."] * W for _ in range(H)]
 
     def put(x, y, ch):
@@ -153,9 +193,8 @@ def draw(legs, arm, bob=0, lean=0):
     row(17 + b, 17, "aaa")
 
     # Head
-    for y, (x0, chars) in HEAD.items():
+    for y, (x0, chars) in HEADS[head or HEAD_CHOICE].items():
         row(y + b, x0 + lean, chars)
-    put(23 + lean, 8 + b, "k")      # nose
 
     # Near arm on top
     for x, y, ch in ARMS[arm]:
