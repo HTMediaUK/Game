@@ -52,19 +52,30 @@ def build():
             if not solid(x, y):
                 continue
             front = SPRITE[y, x, :3]
-            if y <= 14 and 9 <= x <= 22:                       # head: deep, hair round the back
+            if y <= 14 and 9 <= x <= 22:                       # head
+                edge = min(x - 9, 22 - x)                       # 0 at the sides
                 for z in range(0, 12):
-                    if z < 2:
-                        c = front
-                    elif y <= 6 or z >= 7:
-                        c = HAIR if y <= 9 or z >= 9 else HAIR_DARK
-                    elif x in (9, 22) and 8 <= y <= 10 and 5 <= z <= 6:
-                        c = SKIN_SHADE                         # ears
+                    # round the head: trim the back corners and the top back edge
+                    if edge == 0 and (z == 0 or z >= 10):
+                        continue
+                    if y <= 1 and z >= 10:
+                        continue
+                    if z == 0:
+                        c = front                               # the drawn face, front layer only
+                    elif y <= 5 or z >= 6:
+                        c = HAIR if (y <= 9 or z >= 8) else HAIR_DARK   # hair over the top and back
+                    elif edge <= 1 and 7 <= y <= 10 and 3 <= z <= 5:
+                        c = SKIN_SHADE                          # ears
+                    elif edge <= 1 and y <= 7:
+                        c = HAIR_DARK                           # sideburns
                     else:
                         c = SKIN if y < 12 else SKIN_SHADE
                     put(x, y, z, c)
-            elif y <= 23 and 10 <= x <= 21:                    # torso
+            elif y <= 23 and 10 <= x <= 21:                    # torso, back corners rounded
+                edge = min(x - 10, 21 - x)
                 for z in range(2, 10):
+                    if edge == 0 and z in (2, 9):
+                        continue
                     put(x, y, z, front if z == 2 else SHIRT)
             elif y <= 23:                                      # arms
                 for z in range(4, 8):
@@ -74,7 +85,7 @@ def build():
                     put(x, y, z, front if z == 3 else JEANS)
             else:                                              # trainers, toes forward
                 for z in range(1, 9):
-                    put(x, y, z, front if y == 29 else (SOLE if y == 29 else SHOE))
+                    put(x, y, z, SOLE if y == 29 else SHOE)
     return col, fill
 
 
@@ -131,6 +142,12 @@ def render(col, fill, yaw, pitch=0.16, size=56, scale=1.0):
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
     col, fill = build()
+
+    # game frames for Dan's spin jump: the model turning through 30-330 degrees
+    # (front on, the game uses his drawn sprite)
+    game_dir = ROOT / "characters" / "dan"
+    for i, deg in enumerate(range(30, 331, 30)):
+        render(col, fill, math.radians(deg)).save(game_dir / f"spin_{i:02d}.png")
 
     # turntable: eight angles, plus the current flat sprite for comparison
     angles = [i * math.pi / 4 for i in range(8)]

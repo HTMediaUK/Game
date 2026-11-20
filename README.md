@@ -36,7 +36,12 @@ Pick a runner with the arrow keys, then the game is played with the **spacebar**
 | Space | Start, then jump. Tap for a small hop, hold for a big jump |
 | Type, then Enter | Add your name to the high scores at the end of a run |
 | F | Full screen on or off |
-| Ctrl+Alt+R | Clear the high score table (asks first) |
+| Ctrl+Alt+R | Clear the high score table (asks first). Saved entries are kept |
+| Ctrl+Alt+E | Download every entry (name, work email, score, runner, date, time) as a spreadsheet (CSV) |
+
+## Dan's 3D spin
+
+When you play as Dan, he spins round once in the air on every jump, so you see his side and back. The spin frames are a little 3D model made of cubes, built from his sprite and rendered back into pixel art by `sprites/src/voxel_mockup.py`. Only Dan has it for now.
 
 ## The runners
 
@@ -67,6 +72,16 @@ Every so often a pie floats past at jump height. Grab it and Dan puts on a super
 ## Client cameos
 
 The hills feature some of HT's clients as generic buildings, with no names or logos: a hospital (Newcastle Hospitals), cows grazing in the fields (ARN), an old pit headframe and winding house (Mining Remediation Authority) and a small white plane in the sky (HII project).
+
+## Names and work emails
+
+At the end of each run the player types their name, presses Enter, then types their work email and presses Enter again. Only the name ever appears on screen; the high score table never shows emails.
+
+Every entry is saved in Chrome on that laptop. It survives refreshing the page, closing Chrome and restarting the laptop. Download them as a spreadsheet with **Ctrl+Alt+E**, ideally at the end of each day. To keep the entries safe:
+
+- always open the game from the same file, in the same place, in the same browser
+- don't clear Chrome's browsing data on that laptop until you've downloaded them
+- the entries are personal data, so store and use the downloaded file in line with HT's privacy policy
 
 ## High scores
 

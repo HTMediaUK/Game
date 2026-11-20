@@ -22,7 +22,8 @@
 //   Space               start, and jump (tap for a hop, hold for a big jump)
 //   Enter               save your name at the end of a run
 //   F                   full screen
-//   Ctrl+Alt+R          clear the high score table (asks first)
+//   Ctrl+Alt+R          clear the high score table (asks first; entries are kept)
+//   Ctrl+Alt+E          download every entry (name, work email, score) as a CSV
 // Collect a pie to jump twice as high for 10 seconds (and bounce off things you land on).
 // High scores are saved in this browser on this laptop (localStorage).
 // ---------------------------------------------------------------------------
@@ -81,6 +82,9 @@ const CHARS = [
 let sel = 0;                      // which runner is chosen
 const who = () => CHARS[sel];
 const RUN_FRAMES = 6;
+const SPIN_FRAMES = 11;          // Dan's 3D spin: the model at 30, 60 ... 330 degrees
+for (let i = 0; i < SPIN_FRAMES; i++) ASSETS["dan_spin_" + i] = `sprites/characters/dan/spin_${String(i).padStart(2, "0")}.png`;
+const SPIN_TIME = 30;            // a spin takes half a second in the air
 for (const c of CHARS) {
   for (const f of ["stand", "jump_up", "jump_down", "land", ...[0, 1, 2, 3, 4, 5].map(i => "run_" + i)]) {
     ASSETS[`${c.id}_${f}`] = `sprites/characters/${c.id}/${f}.png`;
@@ -132,6 +136,34 @@ function saveScore(name, score, runner) {
   try { localStorage.setItem(STORE_KEY, JSON.stringify(top)); } catch { /* storage blocked */ }
   return top.indexOf(entry);   // -1 if it didn't make the table
 }
+// Every entry (name, work email, score, runner, time) is kept here, on this laptop,
+// separate from the top-10 table. It survives refreshing, closing Chrome and restarting.
+const SUB_KEY = "ht-dash-submissions";
+function loadSubmissions() {
+  try {
+    const list = JSON.parse(localStorage.getItem(SUB_KEY) || "[]");
+    return Array.isArray(list) ? list : [];
+  } catch { return []; }
+}
+function saveSubmission(entry) {
+  const list = loadSubmissions();
+  list.push({ ...entry, at: new Date().toISOString() });
+  try { localStorage.setItem(SUB_KEY, JSON.stringify(list)); } catch { /* storage blocked */ }
+}
+function exportSubmissions() {
+  const rows = [["Name", "Work email", "Score", "Runner", "Date", "Time"]];
+  for (const s of loadSubmissions()) {
+    const d = new Date(s.at);
+    rows.push([s.name, s.email, s.score, s.runner,
+      d.toLocaleDateString("en-GB"), d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })]);
+  }
+  const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\r\n");
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob(["\ufeff" + csv], { type: "text/csv" }));
+  a.download = `ht-dash-entries-${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(a); a.click(); a.remove();
+}
+
 function bestScore() {
   const list = loadScores();
   return list.length ? list[0].score : 0;
@@ -141,6 +173,9 @@ function bestScore() {
 let state = "title";            // title | play | crash | name | board
 let t = 0;                      // frames since the page started
 let speed, distance, score, obstacles, nextGap, dan, crashAt, nameText, nameSince, boardRank, boardSince;
+let emailText = "", field = "name", emailError = false;   // end card: name, then work email
+const MAX_EMAIL = 48;
+const EMAIL_OK = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 let jumpHeld = false;
 let runClock = 0, landTimer = 0;   // run animation and the squash after landing
 let bufferedAt = -99;              // Space pressed just before landing still counts
@@ -176,6 +211,7 @@ function newRun() {
 function jump() {
   if (dan.onGround) {
     dan.vy = power > 0 ? -7.5 : -5.3;   // pie power: twice as high
+    dan.spin = who().id === "dan" ? 0 : -1;   // only Dan spins (for now)
     dan.onGround = false;
   }
 }
@@ -243,6 +279,7 @@ function update() {
     obstacles = [];
     wind = [];
     nameText = "";
+    emailText = ""; field = "name"; emailError = false;
     nameSince = performance.now();
   }
   if (state !== "play") return;
@@ -261,7 +298,7 @@ function update() {
     dan.vy = Math.min(dan.vy + g, 6.5);
     dan.y += dan.vy;
     if (dan.y >= GROUND_Y - 30) {
-      dan.y = GROUND_Y - 30; dan.vy = 0; dan.onGround = true; landTimer = 6;
+      dan.y = GROUND_Y - 30; dan.vy = 0; dan.onGround = true; landTimer = 6; dan.spin = -1;
       if (t - bufferedAt <= 8 && jumpHeld) jump();   // pressed just before landing
     }
   }
@@ -275,6 +312,8 @@ function update() {
   }
   for (const w of wind) w.x -= w.vx;
   wind = wind.filter(w => w.x + w.len > 0);
+
+  if (!dan.onGround && dan.spin >= 0 && dan.spin < SPIN_TIME) dan.spin++;
 
   // about 10 frames a second, picking up gently to about 14 at top speed
   if (dan.onGround) runClock += 0.16 * Math.sqrt(speed / 2.4);
@@ -449,7 +488,19 @@ function drawWorld() {
   } else if (state === "board") {
     danImg = IMG[id + "_run_" + Math.floor(t / 6) % RUN_FRAMES];
   }
-  if (power > 0 && (state === "play" || state === "crash") && (power > 120 || Math.floor(t / 6) % 2)) {
+  // Dan's spin: ease round once; front-on (start and end) he's his normal drawn sprite
+  let ox = 0, oy = 0, spinning = false;
+  if (state === "play" && !d.onGround && d.spin >= 0 && d.spin < SPIN_TIME) {
+    const k = d.spin / SPIN_TIME;
+    const turn = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;   // ease in and out
+    const step = Math.round(turn * (SPIN_FRAMES + 1));
+    if (step >= 1 && step <= SPIN_FRAMES) {
+      danImg = IMG["dan_spin_" + (step - 1)];
+      ox = -12; oy = -14;                                 // the 3D frames are bigger, centred on him
+      spinning = true;
+    }
+  }
+  if (!spinning && power > 0 && (state === "play" || state === "crash") && (power > 120 || Math.floor(t / 6) % 2)) {
     // superhero cape while pie power lasts (it flickers in the last two seconds)
     const cape = !d.onGround ? (d.vy < 0 ? IMG.cape_up : IMG.cape_down) : IMG["cape_run_" + Math.floor(t / 6) % 2];
     ctx.drawImage(cape, Math.round(d.x - 6), Math.round(d.y + 5));
@@ -458,10 +509,10 @@ function drawWorld() {
     // subtle golden glow round Dan while he's super, gently pulsing
     ctx.globalAlpha = 0.35 + 0.15 * Math.sin(t / 8);
     const glow = glowOf(danImg);
-    for (const [gx, gy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) ctx.drawImage(glow, Math.round(d.x) + gx, Math.round(d.y) + gy);
+    for (const [gx, gy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) ctx.drawImage(glow, Math.round(d.x + ox) + gx, Math.round(d.y + oy) + gy);
     ctx.globalAlpha = 1;
   }
-  ctx.drawImage(danImg, Math.round(d.x), Math.round(d.y));
+  ctx.drawImage(danImg, Math.round(d.x + ox), Math.round(d.y + oy));
 }
 
 function drawHud() {
@@ -579,17 +630,25 @@ function draw() {
   }
 
   if (state === "name") {
-    panel(60, 30, 200, 96);
-    text("GAME OVER", W / 2, 44, 14, "#f29a4a");
-    text(`You scored ${score}`, W / 2, 60, 9, "#fff");
-    text("Type your name for the high scores:", W / 2, 76, 7, "#ffe2b0");
-    ctx.fillStyle = "#fff";
-    ctx.fillRect(90, 84, 140, 16);
-    ctx.fillStyle = "#120e17";
-    ctx.fillRect(91, 85, 138, 14);
+    panel(50, 14, 220, 150);
+    text("GAME OVER", W / 2, 28, 14, "#f29a4a");
+    text(`You scored ${score}`, W / 2, 43, 9, "#fff");
     const cursor = Math.floor(t / 20) % 2 === 0 ? "_" : " ";
-    text(nameText + cursor, W / 2, 92.5, 9, "#fff");
-    text("Press ENTER to save", W / 2, 112, 7, nameText.trim() ? "#fff" : "#8a8494");
+    const box = (label, value, y, active, hint) => {
+      text(label, 76, y - 7, 6, active ? "#ffe2b0" : "#8a8494", "left");
+      ctx.fillStyle = active ? "#f29a4a" : "#5a5466";
+      ctx.fillRect(74, y, 172, 16);
+      ctx.fillStyle = "#120e17";
+      ctx.fillRect(75, y + 1, 170, 14);
+      const shown = value || (active ? "" : hint);
+      text(shown + (active ? cursor : ""), W / 2, y + 8.5, value.length > 26 ? 6 : 8, value ? "#fff" : "#5a5466");
+    };
+    box("YOUR NAME (shown on the high scores)", nameText, 62, field === "name", "");
+    box("WORK EMAIL (never shown on screen)", emailText, 96, field === "email", "name@company.co.uk");
+    if (emailError) text("That email doesn't look right. Check it and try again.", W / 2, 122, 6, "#ff8a8a");
+    const ready = field === "name" ? nameText.trim() : emailText;
+    text(field === "name" ? "Press ENTER for the next box" : "Press ENTER to save", W / 2, 136, 7, ready ? "#fff" : "#8a8494");
+    text("We save your email on this laptop for HT Media only.", W / 2, 152, 5, "#8a8494");
   }
   if (state === "board") drawScoreSlate();
 }
@@ -602,21 +661,35 @@ function pressStart() {
 }
 
 addEventListener("keydown", e => {
+  if (e.ctrlKey && e.altKey && e.key.toLowerCase() === "e") {      // download every entry as a CSV
+    exportSubmissions();
+    return;
+  }
   if (e.ctrlKey && e.altKey && e.key.toLowerCase() === "r") {
     if (confirm("Clear the whole high score table?")) localStorage.removeItem(STORE_KEY);
     return;
   }
   if (state === "name") {
     nameSince = performance.now();
-    if (e.key === "Enter" && nameText.trim()) {
-      boardRank = saveScore(nameText.trim(), score, who().id);
-      obstacles = [];
-      boardSince = performance.now();
-      state = "board";
-    } else if (e.key === "Backspace") {
-      nameText = nameText.slice(0, -1);
-    } else if (e.key.length === 1 && /[a-z0-9 .'-]/i.test(e.key) && nameText.length < MAX_NAME) {
-      nameText += e.key.toUpperCase();
+    if (field === "name") {
+      if ((e.key === "Enter" || e.key === "Tab") && nameText.trim()) field = "email";
+      else if (e.key === "Backspace") nameText = nameText.slice(0, -1);
+      else if (e.key.length === 1 && /[a-z0-9 .'-]/i.test(e.key) && nameText.length < MAX_NAME) nameText += e.key.toUpperCase();
+    } else {
+      emailError = false;
+      if (e.key === "Enter") {
+        if (EMAIL_OK.test(emailText)) {
+          saveSubmission({ name: nameText.trim(), email: emailText, score, runner: who().id });
+          boardRank = saveScore(nameText.trim(), score, who().id);   // the table only keeps the name
+          obstacles = [];
+          boardSince = performance.now();
+          state = "board";
+        } else emailError = true;
+      } else if (e.key === "Backspace") {
+        if (emailText) emailText = emailText.slice(0, -1);
+        else field = "name";                                          // back to the name box
+      } else if (e.key === "Tab") field = "name";
+      else if (e.key.length === 1 && /[a-z0-9@._+'-]/i.test(e.key) && emailText.length < MAX_EMAIL) emailText += e.key.toLowerCase();
     }
     e.preventDefault();
     return;
