@@ -49,7 +49,9 @@ const ASSETS = {
   clouds: "sprites/backdrop/clouds.png",
   ground: "sprites/backdrop/ground.png",
   dan_stand: "sprites/dan/dan_v2_stand.png",
-  dan_jump: "sprites/dan/dan_v2_jump.png",
+  dan_jump_up: "sprites/dan/dan_v2_jump_up.png",
+  dan_jump_down: "sprites/dan/dan_v2_jump_down.png",
+  dan_land: "sprites/dan/dan_v2_land.png",
   drone: "sprites/drone/drone_sheet.png",
   tripod: "sprites/obstacles/tripod.png",
   flight_case: "sprites/obstacles/flight_case.png",
@@ -62,8 +64,9 @@ const ASSETS = {
   pie: "sprites/landmarks/pie.png",
   plane: "sprites/landmarks/plane.png",
 };
+const RUN_FRAMES = 6;
+for (let i = 0; i < RUN_FRAMES; i++) ASSETS["dan_run_" + i] = `sprites/dan/dan_v2_run_${i}.png`;
 for (let i = 0; i < 4; i++) {
-  ASSETS["dan_run_" + i] = `sprites/dan/dan_v2_run_${i}.png`;
   ASSETS["far_" + i] = `sprites/backdrop/hills_far_${i}.png`;
   ASSETS["mid_" + i] = `sprites/backdrop/hills_mid_${i}.png`;
 }
@@ -112,6 +115,7 @@ let state = "title";            // title | play | crash | name | board
 let t = 0;                      // frames since the page started
 let speed, distance, score, obstacles, nextGap, dan, crashAt, nameText, nameSince, boardRank, boardSince;
 let jumpHeld = false;
+let runClock = 0, landTimer = 0;   // run animation and the squash after landing
 let pies = [], pieGap = 0, power = 0, pieFlash = 0;
 const POWER_FRAMES = 600;        // pie power lasts 10 seconds
 
@@ -177,8 +181,12 @@ function update() {
   if (!dan.onGround) {
     dan.vy += jumpHeld && dan.vy < 0 ? 0.24 : 0.42;
     dan.y += dan.vy;
-    if (dan.y >= GROUND_Y - 30) { dan.y = GROUND_Y - 30; dan.vy = 0; dan.onGround = true; }
+    if (dan.y >= GROUND_Y - 30) { dan.y = GROUND_Y - 30; dan.vy = 0; dan.onGround = true; landTimer = 6; }
   }
+
+  // about 10 frames a second, picking up gently to about 14 at top speed
+  if (dan.onGround) runClock += 0.16 * Math.sqrt(speed / 2.4);
+  if (landTimer > 0) landTimer--;
 
   nextGap -= speed;
   if (nextGap <= 0) spawn();
@@ -265,9 +273,11 @@ function drawWorld() {
   const d = menu ? { x: 18, y: GROUND_Y - 30, onGround: true } : dan;
   let danImg = IMG.dan_stand;
   if (state === "play") {
-    danImg = d.onGround ? IMG["dan_run_" + Math.floor(distance / 14) % 4] : IMG.dan_jump;
+    if (!d.onGround) danImg = d.vy < 0 ? IMG.dan_jump_up : IMG.dan_jump_down;   // fist up, then arms out
+    else if (landTimer > 0) danImg = IMG.dan_land;
+    else danImg = IMG["dan_run_" + Math.floor(runClock) % RUN_FRAMES];
   } else if (state === "title" || state === "board") {
-    danImg = IMG["dan_run_" + Math.floor(t / 7) % 4];
+    danImg = IMG["dan_run_" + Math.floor(t / 6) % RUN_FRAMES];
   }
   ctx.drawImage(danImg, Math.round(d.x), Math.round(d.y));
   const bob = Math.round(Math.sin(t / 12) * 2);
