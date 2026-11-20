@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Dan's Dash</title>
+<title>HT Dash</title>
 <style>
   :root { --bg: #0e0c12; }
   html, body { margin: 0; height: 100%; background: var(--bg); overflow: hidden; }
@@ -12,11 +12,11 @@
 </style>
 </head>
 <body>
-<canvas id="game" tabindex="0" aria-label="Dan's Dash: press space to jump"></canvas>
+<canvas id="game" tabindex="0" aria-label="HT Dash: press space to jump"></canvas>
 <script>
 "use strict";
 // ---------------------------------------------------------------------------
-// Dan's Dash: HT Media's expo stand game.
+// HT Dash: HT Media's expo stand game.
 // Plain JavaScript, no engine, no internet needed. Open index.html in Chrome.
 //   Space               start, and jump (tap for a hop, hold for a big jump)
 //   Enter               save your name at the end of a run
@@ -71,7 +71,7 @@ const ASSETS = {
 };
 // The HT team. Dan is the default runner; tap Space on the title screen to pick someone else.
 const CHARS = [
-  { id: "dan",   name: "DAN",   role: "MD" },
+  { id: "dan",   name: "DAN",   role: "Managing Director" },
   { id: "mark",  name: "MARK",  role: "Creative Director" },
   { id: "beth",  name: "BETH",  role: "Operations & Creative Coordinator" },
   { id: "sam",   name: "SAM",   role: "Editor" },
@@ -94,7 +94,7 @@ function loadAll() {
     const im = new Image();
     im.onload = () => { IMG[k] = im; ok(); };
     im.onerror = () => fail(new Error("Missing image: " + src));
-    im.src = src;
+    im.src = (window.EMBED && window.EMBED[src]) || src;   // the single-file build carries its images inside
   })));
 }
 
@@ -532,7 +532,7 @@ function drawEndCard() {
 
   // PROD.
   label("PROD.", L + 3, top + 2);
-  text("DAN'S DASH", W / 2 + 8, top + 11, 11, CHALK);
+  text("HT DASH", W / 2 + 8, top + 11, 11, CHALK);
   text(`STARRING ${who().name}`, R - 3, top + 4, 5, CHALK_DIM, "right");
   chalkLine(L, top + 19, R);
   // SCORE | TAKE | DATE
@@ -594,7 +594,7 @@ function draw() {
 
   if (state === "title") {
     panel(70, 6, 180, 52);
-    text("DAN'S DASH", W / 2, 19, 16, "#f29a4a");
+    text("HT DASH", W / 2, 19, 16, "#f29a4a");
     text("an HT Media game", W / 2, 32, 7, "#ffe2b0");
     const top = loadScores()[0];
     text(top ? `BEST: ${top.name} ${top.score}` : "No scores yet. Be the first!", W / 2, 46, 7, "#fff");

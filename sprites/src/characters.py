@@ -164,7 +164,7 @@ MARK_TORSO = {
 }
 
 CHARACTERS = {
-    "dan":   {"name": "Dan", "role": "MD"},
+    "dan":   {"name": "Dan", "role": "Managing Director"},
     "mark":  {"name": "Mark", "role": "Creative Director", "head": MARK_HEAD, "torso": MARK_TORSO,
               "palette": {"x": "#7e4526", "y": "#b06a3c", "z": "#d9925a", "m": "#a65a4a",
                           "c": "#c9d4f2", "b": "#a8b6e0", "j": "#2c3550", "J": "#3e4a6c", **SKIN_ARMS}},

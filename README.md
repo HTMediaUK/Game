@@ -1,4 +1,4 @@
-# Dan's Dash: HT's expo game
+# HT Dash: HT's expo game
 
 A simple pixel art running game for HT Media's trade show stand. Dan runs through the British countryside, jumping over camera kit, roadworks, cows and sheep, dodging seagulls and drones, and grabbing pies for super jumps. It runs in a web browser, needs no internet and nothing to install.
 
@@ -16,6 +16,16 @@ chrome --kiosk "C:\path\to\Game\index.html"
 
 Alt+F4 closes it.
 
+## Sending it to someone to try
+
+`dist/HT-Dash.html` is the whole game in one file (about 130 KB), with all the artwork packed inside. Send it by email, Teams, Slack or WeTransfer. They save it, double-click it, and it opens in their browser. No folder, no install, no internet needed. Chrome or Edge on Windows work best.
+
+After changing the game, rebuild that file with:
+
+```
+python3 tools/build_single_file.py
+```
+
 ## Controls
 
 The game is played with the **spacebar** only.
@@ -30,7 +40,7 @@ The game is played with the **spacebar** only.
 
 ## The runners
 
-Dan (MD) is the default. Tap Space on the title screen to play as Mark (Creative Director), Beth (Operations & Creative Coordinator), Sam (Editor) or Jonas (Creative Producer) instead. After each run it goes back to Dan. Everyone runs, jumps and wears the cape the same way. The artwork is in `sprites/characters/`, drawn by `sprites/src/characters.py`.
+Dan (Managing Director) is the default. Tap Space on the title screen to play as Mark (Creative Director), Beth (Operations & Creative Coordinator), Sam (Editor) or Jonas (Creative Producer) instead. After each run it goes back to Dan. Everyone runs, jumps and wears the cape the same way. The artwork is in `sprites/characters/`, drawn by `sprites/src/characters.py`.
 
 ## Getting harder
 
@@ -70,6 +80,8 @@ The top 10 are saved in Chrome on that laptop, so they survive closing the game 
 | Path | What it is |
 |---|---|
 | `index.html` | The whole game |
+| `dist/HT-Dash.html` | The same game packed into one file to send to people |
+| `tools/build_single_file.py` | Rebuilds `dist/HT-Dash.html` |
 | `sprites/` | All the artwork as PNGs |
 | `sprites/src/` | Python scripts that draw the artwork (`python3 sprites/src/<name>.py` to redraw) |
 | `docs/` | Screenshots |
