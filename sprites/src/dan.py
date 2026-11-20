@@ -17,7 +17,6 @@ PALETTE = {
     "o": "#120e17",  # outline (darker than anything in the sprite)
     # ginger hair and beard: shadows cooler, highlights warmer
     "x": "#8a4a26", "y": "#c97b3c", "z": "#f0ac5a",   # hair
-    "1": "#6e2a1e", "2": "#b04a28",                   # beard
     # skin
     "s": "#b8705a", "k": "#eaa883", "K": "#ffd3ad",
     # black HT t-shirt
@@ -33,22 +32,20 @@ PALETTE = {
 }
 
 HEAD = {
-    # hair (z/y/x, golden ginger) is lighter than the beard (2/1, deeper red),
-    # so the two read as separate shapes
-    1:  (15, "zzyy"),               # swept-up quiff
+    1:  (15, "zzyy"),               # swept-up ginger quiff
     2:  (12, "zzzzyyyyy"),
     3:  (11, "zzyyyyyyyyy"),
     4:  (10, "zyyyyyyyyxKK"),
     5:  (10, "yyyyyyyxKKKKk"),
-    6:  (10, "yykkxKK11k11"),       # ear, thin sideburn, brows
+    6:  (10, "yykkxKKxxkxx"),       # ear, sideburn, brows
     7:  (10, "yyksxkkoKkokk"),      # eyes
-    8:  (10, "yxsk1kkKkkKkk"),      # cheeks lift under the eyes
-    9:  (11, "xs1122k22222"),       # beard follows the jaw; moustache
-    10: (12, "s112221ww12"),        # small grin
-    11: (12, "s122222ss21"),        # lower lip
-    12: (13, "ss12222221"),         # neck shows behind the beard
-    13: (14, "ss11221"),            # beard tapers to the chin
-    14: (15, "ss"),
+    8:  (10, "yxskxkkKkkKkk"),      # cheeks lift under the eyes
+    9:  (11, "xskkkkkkkkkk"),
+    10: (12, "sskkkkswwsk"),        # small grin
+    11: (12, "sskkkkkssk"),         # lower lip, chin
+    12: (13, "sskkkkks"),           # jawline
+    13: (14, "sss"),                # neck
+    14: (14, "ss"),
 }
 
 # Legs from y=25 down to the ground (y=30), columns starting at x=6.
