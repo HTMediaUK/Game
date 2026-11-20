@@ -127,38 +127,77 @@ def hills_far(frame):
     return img
 
 
-FIELDS = ["#7cc35a", "#8fd16a", "#6bb04c", "#e6d25a", "#7cc35a", "#a98a5c", "#8fd16a"]
+# Each field type has a light / mid / dark ramp and its own texture.
+FIELD_TYPES = {
+    "meadow":   ("#9bd86e", "#7cc35a", "#5f9f45", "specks"),
+    "pasture":  ("#a9e07a", "#8fd16a", "#6fb04f", "stripes"),
+    "grazing":  ("#87c060", "#6bb04c", "#518c3a", "specks"),
+    "rapeseed": ("#f6e57a", "#e6d25a", "#c4ad3c", "flowers"),
+    "ploughed": ("#c09a68", "#a98a5c", "#846742", "furrows"),
+}
+FIELDS = ["meadow", "pasture", "grazing", "rapeseed", "meadow", "ploughed", "pasture"]
+HEDGE_ROWS = (9, 20)
+COLUMNS = [0, 34, 70, 101, 140, 172, 211, 245, 283, W]
+
+
+def field_at(x, y):
+    depth = y - mid_ridge(x)
+    col_i = max(i for i, c in enumerate(COLUMNS) if c <= x)
+    row_i = 0 if depth < HEDGE_ROWS[0] else 1 if depth < HEDGE_ROWS[1] else 2
+    return FIELD_TYPES[FIELDS[(col_i * 3 + row_i * 2) % len(FIELDS)]]
 
 
 def hills_mid(frame):
     img = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-    hedge, edge = hexc("#3f7a35"), hexc("#a6dc7c")
     rng = random.Random(7)
-    columns = [0, 34, 70, 101, 140, 172, 211, 245, 283, W]
     for x in range(W):
         r = mid_ridge(x)
-        col_i = max(i for i, c in enumerate(columns) if c <= x)
+        # Light comes from the top left: slopes facing left catch it,
+        # slopes facing right fall into shadow.
+        slope = mid_ridge((x + 3) % W) - mid_ridge((x - 3) % W)
+        base = 2 if slope >= 3 else 0 if slope <= -3 else 1
         for y in range(r, H):
             depth = y - r
-            row_i = 0 if depth < 9 else 1 if depth < 20 else 2
-            colour = FIELDS[(col_i * 3 + row_i * 2) % len(FIELDS)]
-            img.putpixel((x, y), hexc(colour))
-        img.putpixel((x, r), edge)
-        for d in (9, 20):                     # hedgerows follow the slope
-            if r + d < H:
-                img.putpixel((x, r + d), hedge)
-    for c in columns[1:-1]:                   # field boundaries down the hill
+            light, mid, dark, texture = field_at(x, y)
+            ramp = [light, mid, dark]
+            shade = 0 if depth < 2 else base       # sunlit crest
+            if texture == "furrows" and depth % 3 == 0:
+                shade = min(2, shade + 1)          # furrows follow the hill
+            elif texture == "stripes" and (x + depth) // 4 % 2 == 0:
+                shade = max(0, shade - 1)          # mown stripes
+            elif texture == "specks" and (x * 7 + y * 13) % 11 == 0:
+                shade = min(2, shade + 1)          # tufts
+            elif texture == "flowers" and (x * 5 + y * 3) % 7 == 0:
+                shade = max(0, shade - 1)          # bright flower heads
+            img.putpixel((x, y), hexc(ramp[shade]))
+        img.putpixel((x, r), hexc("#c3eb98"))      # rim light on the ridge
+        for d in HEDGE_ROWS:                        # hedgerows, with a shadow below
+            if r + d + 1 < H:
+                leafy = (x * 3) % 5 == 0
+                img.putpixel((x, r + d - 1), hexc("#4f8f3f") if leafy else hexc("#3f7a35"))
+                img.putpixel((x, r + d), hexc("#2f5f2a"))
+                img.putpixel((x, r + d + 1), hexc(field_at(x, r + d + 1)[2]))
+    for c in COLUMNS[1:-1]:                         # field boundaries down the hill
         for y in range(mid_ridge(c) + 1, H):
-            img.putpixel((c, y), hedge)
-    # trees dotted along the hedges
+            img.putpixel((c, y), hexc("#2f5f2a"))
+            img.putpixel((c + 1, y), hexc(field_at(c + 1, y)[2]))
+    # trees along the hedges: shadow on the ground first, then the canopy
     for _ in range(26):
         x = rng.randrange(W)
-        y = mid_ridge(x) + rng.choice((9, 20))
-        for dx in range(-2, 3):
-            for dy in range(-4, 1):
-                if dx * dx + (dy + 2) ** 2 <= 5:
-                    img.putpixel(((x + dx) % W, y + dy),
-                                 hexc("#2f6a2e") if dx > 0 or dy == 0 else hexc("#4a8f3c"))
+        y = mid_ridge(x) + rng.choice(HEDGE_ROWS) - 1
+        for dx in range(0, 5):
+            img.putpixel(((x + dx) % W, y + 1), hexc("#2f5f2a"))
+        for dx in range(-3, 4):
+            for dy in range(-6, 1):
+                d2 = dx * dx + (dy + 3) ** 2
+                if d2 <= 10:
+                    if dx + dy < -5:
+                        col = "#6aab4c"                # sunlit top left
+                    elif dx + dy > -1:
+                        col = "#24502a"                # shadow side
+                    else:
+                        col = "#3d7f39"
+                    img.putpixel(((x + dx) % W, y + dy), hexc(col))
     for i, (x, tower) in enumerate(MID_TURBINES):
         angle = frame * TAU / 12 + i * 1.3
         turbine(img, x, mid_ridge(x) + 2, tower, tower // 3, angle,
