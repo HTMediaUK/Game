@@ -22,10 +22,15 @@ The game is played with the **spacebar** only.
 
 | Key | What it does |
 |---|---|
-| Space | Start, and jump. Tap for a small hop, hold for a big jump |
+| Space (title screen) | Tap to pick the next runner, hold to start |
+| Space (playing) | Jump. Tap for a small hop, hold for a big jump |
 | Type, then Enter | Add your name to the high scores at the end of a run |
 | F | Full screen on or off |
 | Ctrl+Alt+R | Clear the high score table (asks first) |
+
+## The runners
+
+Dan (MD) is the default. Tap Space on the title screen to play as Mark (Creative Director), Beth (Operations & Creative Coordinator), Sam (Editor) or Jonas (Creative Producer) instead. After each run it goes back to Dan. Everyone runs, jumps and wears the cape the same way. The artwork is in `sprites/characters/`, drawn by `sprites/src/characters.py`.
 
 ## Getting harder
 

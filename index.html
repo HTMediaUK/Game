@@ -49,10 +49,6 @@ const ASSETS = {
   sky: "sprites/backdrop/sky.png",
   clouds: "sprites/backdrop/clouds.png",
   ground: "sprites/backdrop/ground.png",
-  dan_stand: "sprites/dan/dan_v2_stand.png",
-  dan_jump_up: "sprites/dan/dan_v2_jump_up.png",
-  dan_jump_down: "sprites/dan/dan_v2_jump_down.png",
-  dan_land: "sprites/dan/dan_v2_land.png",
   tripod: "sprites/obstacles/tripod.png",
   flight_case: "sprites/obstacles/flight_case.png",
   flight_cases_stacked: "sprites/obstacles/flight_cases_stacked.png",
@@ -73,8 +69,22 @@ const ASSETS = {
   cape_down: "sprites/landmarks/cape_down.png",
   plane: "sprites/landmarks/plane.png",
 };
+// The HT team. Dan is the default runner; tap Space on the title screen to pick someone else.
+const CHARS = [
+  { id: "dan",   name: "DAN",   role: "MD" },
+  { id: "mark",  name: "MARK",  role: "Creative Director" },
+  { id: "beth",  name: "BETH",  role: "Operations & Creative Coordinator" },
+  { id: "sam",   name: "SAM",   role: "Editor" },
+  { id: "jonas", name: "JONAS", role: "Creative Producer" },
+];
+let sel = 0;                      // which runner is chosen
+const who = () => CHARS[sel];
 const RUN_FRAMES = 6;
-for (let i = 0; i < RUN_FRAMES; i++) ASSETS["dan_run_" + i] = `sprites/dan/dan_v2_run_${i}.png`;
+for (const c of CHARS) {
+  for (const f of ["stand", "jump_up", "jump_down", "land", ...[0, 1, 2, 3, 4, 5].map(i => "run_" + i)]) {
+    ASSETS[`${c.id}_${f}`] = `sprites/characters/${c.id}/${f}.png`;
+  }
+}
 for (let i = 0; i < 4; i++) {
   ASSETS["far_" + i] = `sprites/backdrop/hills_far_${i}.png`;
   ASSETS["mid_" + i] = `sprites/backdrop/hills_mid_${i}.png`;
@@ -112,9 +122,9 @@ function loadScores() {
     return Array.isArray(list) ? list : [];
   } catch { return []; }
 }
-function saveScore(name, score) {
+function saveScore(name, score, runner) {
   const list = loadScores();
-  const entry = { name, score, at: Date.now() };
+  const entry = { name, score, runner, at: Date.now() };
   list.push(entry);
   list.sort((a, b) => b.score - a.score || a.at - b.at);
   const top = list.slice(0, MAX_SCORES);
@@ -128,6 +138,8 @@ function bestScore() {
 
 // ----------------------------------------------------------------- game state
 let state = "title";            // title | play | crash | name | board
+let holdStart = null;            // when Space went down on the title screen
+const HOLD_MS = 450;             // hold this long to start; a shorter tap picks the next runner
 let t = 0;                      // frames since the page started
 let speed, distance, score, obstacles, nextGap, dan, crashAt, nameText, nameSince, boardRank, boardSince;
 let jumpHeld = false;
@@ -225,8 +237,13 @@ function update() {
   if (state === "title" || state === "board") {
     distance = (distance || 0) + 1.5;   // backdrop keeps scrolling behind the menus
   }
-  if (state === "board" && performance.now() - boardSince > 15000) state = "title";
-  if (state === "name" && performance.now() - nameSince > NAME_TIMEOUT_MS) { state = "title"; obstacles = []; }
+  if (state === "board" && performance.now() - boardSince > 15000) { state = "title"; sel = 0; }
+  if (state === "name" && performance.now() - nameSince > NAME_TIMEOUT_MS) { state = "title"; sel = 0; obstacles = []; }
+  if (state === "title" && holdStart && performance.now() - holdStart >= HOLD_MS) {
+    holdStart = null;                                            // held long enough: go
+    newRun();
+    jumpHeld = false;
+  }
   if (state === "crash" && performance.now() - crashAt > 900) {
     state = "name";
     slateAt = performance.now();
@@ -349,6 +366,24 @@ function glowOf(img) {
   return glowCache.get(img);
 }
 
+// Title screen: the whole team stands on the grass; the chosen runner jogs on the spot and glows.
+function drawLineup() {
+  CHARS.forEach((c, i) => {
+    const x = 20 + i * 60, y = GROUND_Y - 30;
+    const chosen = i === sel;
+    const img = chosen ? IMG[c.id + "_run_" + Math.floor(t / 6) % RUN_FRAMES] : IMG[c.id + "_stand"];
+    if (chosen) {
+      ctx.globalAlpha = 0.55 + 0.2 * Math.sin(t / 8);
+      const glow = glowOf(img);
+      for (const [gx, gy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) ctx.drawImage(glow, x + gx, y + gy);
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = "#f29a4a";                         // little arrow over their head
+      for (let k = 0; k < 4; k++) ctx.fillRect(x + 12 + k, y - 9 + k, 8 - 2 * k, 1);
+    }
+    ctx.drawImage(img, x, y);
+  });
+}
+
 function drawWorld() {
   const turbine = Math.floor(t / 6) % 4;
   ctx.drawImage(IMG.sky, 0, 0);
@@ -374,15 +409,17 @@ function drawWorld() {
   }
 
   // Dan
-  const menu = state === "title" || state === "board" || state === "name";
+  if (state === "title") { drawLineup(); return; }
+  const menu = state === "board" || state === "name";
   const d = menu ? { x: 18, y: GROUND_Y - 30, onGround: true } : dan;
-  let danImg = IMG.dan_stand;
+  const id = who().id;
+  let danImg = IMG[id + "_stand"];
   if (state === "play") {
-    if (!d.onGround) danImg = d.vy < 0 ? IMG.dan_jump_up : IMG.dan_jump_down;   // fist up, then arms out
-    else if (landTimer > 0) danImg = IMG.dan_land;
-    else danImg = IMG["dan_run_" + Math.floor(runClock) % RUN_FRAMES];
-  } else if (state === "title" || state === "board") {
-    danImg = IMG["dan_run_" + Math.floor(t / 6) % RUN_FRAMES];
+    if (!d.onGround) danImg = d.vy < 0 ? IMG[id + "_jump_up"] : IMG[id + "_jump_down"];   // fist up, then arms out
+    else if (landTimer > 0) danImg = IMG[id + "_land"];
+    else danImg = IMG[id + "_run_" + Math.floor(runClock) % RUN_FRAMES];
+  } else if (state === "board") {
+    danImg = IMG[id + "_run_" + Math.floor(t / 6) % RUN_FRAMES];
   }
   if (power > 0 && (state === "play" || state === "crash") && (power > 120 || Math.floor(t / 6) % 2)) {
     // superhero cape while pie power lasts (it flickers in the last two seconds)
@@ -478,6 +515,7 @@ function drawEndCard() {
   // PROD.
   label("PROD.", L + 3, top + 2);
   text("DAN'S DASH", W / 2 + 8, top + 11, 11, CHALK);
+  text(`STARRING ${who().name}`, R - 3, top + 4, 5, CHALK_DIM, "right");
   chalkLine(L, top + 19, R);
   // SCORE | TAKE | DATE
   const c1 = L + Math.round((R - L) * 0.42), c2 = L + Math.round((R - L) * 0.64);
@@ -537,12 +575,19 @@ function draw() {
   }
 
   if (state === "title") {
-    panel(70, 18, 180, 128);
-    text("DAN'S DASH", W / 2, 32, 16, "#f29a4a");
-    text("an HT Media game", W / 2, 46, 7, "#ffe2b0");
-    text("HIGH SCORES", W / 2, 60, 8, "#fff");
-    drawTable(112, 72, -1);
-    if (Math.floor(t / 30) % 2 === 0) text("PRESS SPACE TO PLAY", W / 2, 138, 8, "#fff");
+    panel(70, 6, 180, 52);
+    text("DAN'S DASH", W / 2, 19, 16, "#f29a4a");
+    text("an HT Media game", W / 2, 32, 7, "#ffe2b0");
+    const top = loadScores()[0];
+    text(top ? `BEST: ${top.name} ${top.score}` : "No scores yet. Be the first!", W / 2, 46, 7, "#fff");
+    text(who().name, W / 2, 70, 12, "#fff");
+    text(who().role, W / 2, 81, 7, "#ffe2b0");
+    text("TAP SPACE: NEXT RUNNER     HOLD SPACE: PLAY", W / 2, 95, 6, "#fff");
+    if (holdStart) {                                    // fills while Space is held
+      const k = Math.min(1, (performance.now() - holdStart) / HOLD_MS);
+      ctx.fillStyle = "rgba(18,14,23,0.7)"; ctx.fillRect(W / 2 - 40, 101, 80, 4);
+      ctx.fillStyle = "#f29a4a"; ctx.fillRect(W / 2 - 39, 102, Math.round(78 * k), 2);
+    }
   }
 
   if (state === "name") drawEndCard();
@@ -551,7 +596,8 @@ function draw() {
 
 // ----------------------------------------------------------------- input
 function pressStart() {
-  if (state === "title" || state === "board") { newRun(); jumpHeld = false; }
+  if (state === "title") holdStart = performance.now();          // tap = next runner, hold = play
+  else if (state === "board") { sel = 0; state = "title"; holdStart = null; }   // Dan is the default again
   else if (state === "play") { jumpHeld = true; if (!dan.onGround) bufferedAt = t; jump(); }
 }
 
@@ -563,7 +609,7 @@ addEventListener("keydown", e => {
   if (state === "name") {
     nameSince = performance.now();
     if (e.key === "Enter" && nameText.trim()) {
-      boardRank = saveScore(nameText.trim(), score);
+      boardRank = saveScore(nameText.trim(), score, who().id);
       obstacles = [];
       boardSince = performance.now();
       state = "board";
@@ -586,7 +632,12 @@ addEventListener("keydown", e => {
   }
 });
 addEventListener("keyup", e => {
-  if (e.key === " ") jumpHeld = false;
+  if (e.key !== " ") return;
+  jumpHeld = false;
+  if (state === "title" && holdStart) {                          // a short tap: next runner
+    sel = (sel + 1) % CHARS.length;
+    holdStart = null;
+  }
 });
 // The game is played with Space only. A click just gives the page keyboard focus.
 canvas.addEventListener("pointerdown", () => canvas.focus());
