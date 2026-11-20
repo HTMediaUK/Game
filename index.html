@@ -1,0 +1,363 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dan's Dash</title>
+<style>
+  :root { --bg: #0e0c12; }
+  html, body { margin: 0; height: 100%; background: var(--bg); overflow: hidden; }
+  body { display: grid; place-items: center; }
+  canvas { display: block; image-rendering: pixelated; image-rendering: crisp-edges; cursor: none; }
+</style>
+</head>
+<body>
+<canvas id="game" aria-label="Dan's Dash: press space to jump"></canvas>
+<script>
+"use strict";
+// ---------------------------------------------------------------------------
+// Dan's Dash: HT Media's expo stand game.
+// Plain JavaScript, no engine, no internet needed. Open index.html in Chrome.
+//   Space / Up / click  jump (hold for a higher jump)
+//   F                   full screen
+//   Ctrl+Alt+R          clear the high score table (asks first)
+// High scores are saved in this browser on this laptop (localStorage).
+// ---------------------------------------------------------------------------
+
+const W = 320, H = 180, GROUND_Y = 148;
+const STORE_KEY = "ht-dans-dash-highscores";
+const MAX_SCORES = 10, MAX_NAME = 12;
+const NAME_TIMEOUT_MS = 60000;          // abandon name entry after a minute idle
+
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+let S = 1;                               // integer scale from 320x180 to the screen
+
+function resize() {
+  S = Math.max(1, Math.floor(Math.min(innerWidth / W, innerHeight / H)));
+  canvas.width = W * S;
+  canvas.height = H * S;
+}
+addEventListener("resize", resize);
+resize();
+
+// ----------------------------------------------------------------- assets
+const IMG = {};
+const ASSETS = {
+  sky: "sprites/backdrop/sky.png",
+  clouds: "sprites/backdrop/clouds.png",
+  ground: "sprites/backdrop/ground.png",
+  dan_stand: "sprites/dan/dan_v2_stand.png",
+  dan_jump: "sprites/dan/dan_v2_jump.png",
+  drone: "sprites/drone/drone_sheet.png",
+  tripod: "sprites/obstacles/tripod.png",
+  flight_case: "sprites/obstacles/flight_case.png",
+  flight_cases_stacked: "sprites/obstacles/flight_cases_stacked.png",
+  softbox: "sprites/obstacles/softbox.png",
+  sheep_0: "sprites/obstacles/sheep_0.png",
+  sheep_1: "sprites/obstacles/sheep_1.png",
+  cow_0: "sprites/obstacles/cow_0.png",
+  cow_1: "sprites/obstacles/cow_1.png",
+};
+for (let i = 0; i < 4; i++) {
+  ASSETS["dan_run_" + i] = `sprites/dan/dan_v2_run_${i}.png`;
+  ASSETS["far_" + i] = `sprites/backdrop/hills_far_${i}.png`;
+  ASSETS["mid_" + i] = `sprites/backdrop/hills_mid_${i}.png`;
+}
+function loadAll() {
+  return Promise.all(Object.entries(ASSETS).map(([k, src]) => new Promise((ok, fail) => {
+    const im = new Image();
+    im.onload = () => { IMG[k] = im; ok(); };
+    im.onerror = () => fail(new Error("Missing image: " + src));
+    im.src = src;
+  })));
+}
+
+// Obstacles: frames, how often they appear, and when they start appearing.
+const OBSTACLES = [
+  { name: "tripod",               frames: ["tripod"],               weight: 3, from: 0 },
+  { name: "flight_case",          frames: ["flight_case"],          weight: 3, from: 0 },
+  { name: "sheep",                frames: ["sheep_0", "sheep_1"],   weight: 3, from: 0,   walk: 0.4 },
+  { name: "flight_cases_stacked", frames: ["flight_cases_stacked"], weight: 2, from: 150 },
+  { name: "cow",                  frames: ["cow_0", "cow_1"],       weight: 2, from: 250, walk: 0.25 },
+  { name: "softbox",              frames: ["softbox"],              weight: 1, from: 400 },
+];
+
+// ----------------------------------------------------------------- high scores
+function loadScores() {
+  try {
+    const list = JSON.parse(localStorage.getItem(STORE_KEY) || "[]");
+    return Array.isArray(list) ? list : [];
+  } catch { return []; }
+}
+function saveScore(name, score) {
+  const list = loadScores();
+  const entry = { name, score, at: Date.now() };
+  list.push(entry);
+  list.sort((a, b) => b.score - a.score || a.at - b.at);
+  const top = list.slice(0, MAX_SCORES);
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(top)); } catch { /* storage blocked */ }
+  return top.indexOf(entry);   // -1 if it didn't make the table
+}
+function bestScore() {
+  const list = loadScores();
+  return list.length ? list[0].score : 0;
+}
+
+// ----------------------------------------------------------------- game state
+let state = "title";            // title | play | crash | name | board
+let t = 0;                      // frames since the page started
+let speed, distance, score, obstacles, nextGap, dan, crashAt, nameText, nameSince, boardRank, boardSince;
+let jumpHeld = false;
+
+function newRun() {
+  speed = 2.4;
+  distance = 0;
+  score = 0;
+  obstacles = [];
+  nextGap = 140;
+  dan = { x: 50, y: GROUND_Y - 30, vy: 0, onGround: true };
+  state = "play";
+}
+
+function jump() {
+  if (dan.onGround) {
+    dan.vy = -5.3;
+    dan.onGround = false;
+  }
+}
+
+function spawn() {
+  const pool = OBSTACLES.filter(o => score >= o.from);
+  let r = Math.random() * pool.reduce((s, o) => s + o.weight, 0);
+  const kind = pool.find(o => (r -= o.weight) < 0) || pool[0];
+  const im = IMG[kind.frames[0]];
+  obstacles.push({ kind, x: W + 4, y: GROUND_Y - im.height + 1, w: im.width, h: im.height });
+  // gap grows with speed so jumps stay fair
+  nextGap = (110 + Math.random() * 130) * (0.7 + speed / 6);
+}
+
+function hit(o) {
+  // forgiving hitboxes: Dan's body and the obstacle shrunk a little
+  const dx0 = dan.x + 10, dx1 = dan.x + 22, dy0 = dan.y + 4, dy1 = dan.y + 29;
+  const ox0 = o.x + 3, ox1 = o.x + o.w - 3, oy0 = o.y + 3, oy1 = o.y + o.h;
+  return dx0 < ox1 && dx1 > ox0 && dy0 < oy1 && dy1 > oy0;
+}
+
+function update() {
+  t++;
+  if (state === "title" || state === "board") {
+    distance = (distance || 0) + 1.5;   // backdrop keeps scrolling behind the menus
+  }
+  if (state === "board" && performance.now() - boardSince > 15000) state = "title";
+  if (state === "name" && performance.now() - nameSince > NAME_TIMEOUT_MS) { state = "title"; obstacles = []; }
+  if (state === "crash" && performance.now() - crashAt > 900) {
+    state = "name";
+    obstacles = [];
+    nameText = "";
+    nameSince = performance.now();
+  }
+  if (state !== "play") return;
+
+  speed = Math.min(6.2, 2.4 + distance / 2500);
+  distance += speed;
+  score = Math.floor(distance / 10);
+
+  // jump physics; letting go early gives a shorter hop
+  if (!dan.onGround) {
+    dan.vy += jumpHeld && dan.vy < 0 ? 0.24 : 0.42;
+    dan.y += dan.vy;
+    if (dan.y >= GROUND_Y - 30) { dan.y = GROUND_Y - 30; dan.vy = 0; dan.onGround = true; }
+  }
+
+  nextGap -= speed;
+  if (nextGap <= 0) spawn();
+  for (const o of obstacles) o.x -= speed + (o.kind.walk || 0);
+  obstacles = obstacles.filter(o => o.x + o.w > -4);
+
+  if (obstacles.some(hit)) {
+    state = "crash";
+    crashAt = performance.now();
+  }
+}
+
+// ----------------------------------------------------------------- drawing
+function tileLayer(img, offset) {
+  const o = Math.floor(offset) % W;
+  ctx.drawImage(img, -o, 0);
+  ctx.drawImage(img, W - o, 0);
+}
+
+function text(str, x, y, size, colour = "#fff", align = "center") {
+  ctx.font = `bold ${size}px ui-monospace, "Cascadia Mono", Consolas, "Courier New", monospace`;
+  ctx.textAlign = align;
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = "rgba(18,14,23,0.85)";
+  ctx.fillText(str, x + 0.75, y + 0.75);   // drop shadow
+  ctx.fillStyle = colour;
+  ctx.fillText(str, x, y);
+}
+
+function panel(x, y, w, h) {
+  ctx.fillStyle = "rgba(18,14,23,0.82)";
+  ctx.fillRect(x, y, w, h);
+  ctx.strokeStyle = "#f29a4a";
+  ctx.lineWidth = 1;
+  ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+}
+
+function drawWorld() {
+  const turbine = Math.floor(t / 6) % 4;
+  ctx.drawImage(IMG.sky, 0, 0);
+  tileLayer(IMG.clouds, t * 0.1 + distance * 0.05);
+  tileLayer(IMG["far_" + turbine], distance * 0.1);
+  tileLayer(IMG["mid_" + turbine], distance * 0.3);
+  tileLayer(IMG.ground, distance);
+
+  for (const o of obstacles || []) {
+    const f = o.kind.frames;
+    const im = IMG[f[Math.floor(t / 10) % f.length]];
+    ctx.drawImage(im, Math.round(o.x), o.y);
+  }
+
+  // Dan and his drone
+  const menu = state === "title" || state === "board" || state === "name";
+  const d = menu ? { x: 18, y: GROUND_Y - 30, onGround: true } : dan;
+  let danImg = IMG.dan_stand;
+  if (state === "play") {
+    danImg = d.onGround ? IMG["dan_run_" + Math.floor(distance / 14) % 4] : IMG.dan_jump;
+  } else if (state === "title" || state === "board") {
+    danImg = IMG["dan_run_" + Math.floor(t / 7) % 4];
+  }
+  ctx.drawImage(danImg, Math.round(d.x), Math.round(d.y));
+  const bob = Math.round(Math.sin(t / 12) * 2);
+  ctx.drawImage(IMG.drone, (Math.floor(t / 3) % 2) * 24, 0, 24, 10,
+                Math.round(d.x + 6), Math.round(Math.min(d.y, GROUND_Y - 30) - 26 + bob), 24, 10);
+}
+
+function drawHud() {
+  text(`SCORE ${String(score).padStart(5, "0")}`, W - 6, 10, 8, "#fff", "right");
+  text(`BEST ${String(Math.max(bestScore(), score)).padStart(5, "0")}`, W - 6, 20, 7, "#ffe2b0", "right");
+}
+
+function drawTable(x, y, highlight) {
+  const list = loadScores();
+  if (!list.length) {
+    text("No scores yet. Be the first!", W / 2, y + 20, 7, "#ffe2b0");
+    return;
+  }
+  list.forEach((e, i) => {
+    const row = y + i * 9;
+    const colour = i === highlight ? "#f29a4a" : "#fff";
+    text(`${String(i + 1).padStart(2, " ")}.`, x, row, 7, colour, "right");
+    text(e.name, x + 6, row, 7, colour, "left");
+    text(String(e.score), x + 120, row, 7, colour, "right");
+  });
+}
+
+function draw() {
+  ctx.setTransform(S, 0, 0, S, 0, 0);
+  ctx.imageSmoothingEnabled = false;
+  drawWorld();
+
+  if (state === "play" || state === "crash") drawHud();
+
+  if (state === "crash") {
+    text("OUCH!", W / 2, 60, 18, "#ff6b6b");
+  }
+
+  if (state === "title") {
+    panel(70, 18, 180, 128);
+    text("DAN'S DASH", W / 2, 32, 16, "#f29a4a");
+    text("an HT Media game", W / 2, 46, 7, "#ffe2b0");
+    text("HIGH SCORES", W / 2, 60, 8, "#fff");
+    drawTable(112, 72, -1);
+    if (Math.floor(t / 30) % 2 === 0) text("PRESS SPACE TO PLAY", W / 2, 138, 8, "#fff");
+  }
+
+  if (state === "name") {
+    panel(60, 30, 200, 96);
+    text("GAME OVER", W / 2, 44, 14, "#f29a4a");
+    text(`You scored ${score}`, W / 2, 60, 9, "#fff");
+    text("Type your name for the high scores:", W / 2, 76, 7, "#ffe2b0");
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(90, 84, 140, 16);
+    ctx.fillStyle = "#120e17";
+    ctx.fillRect(91, 85, 138, 14);
+    const cursor = Math.floor(t / 20) % 2 === 0 ? "_" : " ";
+    text(nameText + cursor, W / 2, 92.5, 9, "#fff");
+    text("Press ENTER to save", W / 2, 112, 7, nameText.trim() ? "#fff" : "#8a8494");
+  }
+
+  if (state === "board") {
+    panel(70, 14, 180, 136);
+    text(boardRank >= 0 ? `You're number ${boardRank + 1}!` : "Nice try!", W / 2, 28, 11, "#f29a4a");
+    text("HIGH SCORES", W / 2, 42, 8, "#fff");
+    drawTable(112, 54, boardRank);
+    if (Math.floor(t / 30) % 2 === 0) text("PRESS SPACE TO PLAY AGAIN", W / 2, 144, 7, "#fff");
+  }
+}
+
+// ----------------------------------------------------------------- input
+function pressStart() {
+  if (state === "title" || state === "board") { newRun(); jumpHeld = false; }
+  else if (state === "play") { jumpHeld = true; jump(); }
+}
+
+addEventListener("keydown", e => {
+  if (e.ctrlKey && e.altKey && e.key.toLowerCase() === "r") {
+    if (confirm("Clear the whole high score table?")) localStorage.removeItem(STORE_KEY);
+    return;
+  }
+  if (state === "name") {
+    nameSince = performance.now();
+    if (e.key === "Enter" && nameText.trim()) {
+      boardRank = saveScore(nameText.trim(), score);
+      obstacles = [];
+      boardSince = performance.now();
+      state = "board";
+    } else if (e.key === "Backspace") {
+      nameText = nameText.slice(0, -1);
+    } else if (e.key.length === 1 && /[a-z0-9 .'-]/i.test(e.key) && nameText.length < MAX_NAME) {
+      nameText += e.key.toUpperCase();
+    }
+    e.preventDefault();
+    return;
+  }
+  if (e.key === "f" || e.key === "F") {
+    if (!document.fullscreenElement) document.documentElement.requestFullscreen?.();
+    else document.exitFullscreen?.();
+    return;
+  }
+  if ((e.key === " " || e.key === "ArrowUp" || e.key === "Enter") && !e.repeat) {
+    e.preventDefault();
+    pressStart();
+  }
+});
+addEventListener("keyup", e => {
+  if (e.key === " " || e.key === "ArrowUp") jumpHeld = false;
+});
+canvas.addEventListener("pointerdown", () => { if (state !== "name") pressStart(); });
+addEventListener("pointerup", () => { jumpHeld = false; });
+
+// ----------------------------------------------------------------- main loop
+// Fixed 60 updates a second, whatever the screen's refresh rate.
+let last = performance.now(), acc = 0;
+function frame(now) {
+  acc += Math.min(250, now - last);
+  last = now;
+  while (acc >= 1000 / 60) { update(); acc -= 1000 / 60; }
+  draw();
+  requestAnimationFrame(frame);
+}
+
+loadAll().then(() => {
+  distance = 0; score = 0; obstacles = [];
+  requestAnimationFrame(frame);
+}).catch(err => {
+  ctx.setTransform(S, 0, 0, S, 0, 0);
+  text(err.message, W / 2, H / 2, 7, "#ff6b6b");
+});
+</script>
+</body>
+</html>
