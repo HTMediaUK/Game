@@ -85,5 +85,6 @@ The top 10 are saved in Chrome on that laptop, so they survive closing the game 
 | `sprites/` | All the artwork as PNGs |
 | `sprites/src/` | Python scripts that draw the artwork (`python3 sprites/src/<name>.py` to redraw) |
 | `docs/` | Screenshots |
+| `memory/` | What HT has taught Claude about the game (`learnings.md` first) |
 | `.claude/skills/pixel-art-studio/` | Pixel Art Studio skill (MIT), used by Claude to draw the sprites. Source in its `UPSTREAM.md` |
 | `.claude/agents/pixel-art-reviewer.md` | Checks finished sprites against the skill's quality rules |
