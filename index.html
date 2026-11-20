@@ -362,23 +362,40 @@ function glowOf(img) {
 // Title screen: the whole team stands on the grass; the chosen runner jogs on the spot and glows.
 function drawLineup() {
   CHARS.forEach((c, i) => {
-    const x = 20 + i * 60, y = GROUND_Y - 30;
+    const x = 20 + i * 60, y = GROUND_Y - 30, cx = x + 16;
     const chosen = i === sel;
-    const img = chosen ? IMG[c.id + "_run_" + Math.floor(t / 6) % RUN_FRAMES] : IMG[c.id + "_stand"];
     if (chosen) {
-      ctx.globalAlpha = 0.55 + 0.2 * Math.sin(t / 8);
-      const glow = glowOf(img);
-      for (const [gx, gy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) ctx.drawImage(glow, x + gx, y + gy);
+      // soft spotlight beam and a pool of light at their feet
+      ctx.fillStyle = "rgba(255,226,150,0.16)";
+      ctx.beginPath();
+      ctx.moveTo(cx - 5, 96); ctx.lineTo(cx + 5, 96);
+      ctx.lineTo(cx + 24, GROUND_Y); ctx.lineTo(cx - 24, GROUND_Y);
+      ctx.closePath(); ctx.fill();
+      ctx.fillStyle = "rgba(255,217,138,0.45)";
+      ctx.beginPath(); ctx.ellipse(cx, GROUND_Y, 18, 3, 0, 0, Math.PI * 2); ctx.fill();
+    }
+    // chosen runner jogs on the spot; everyone else breathes, each a little out of step
+    const img = chosen ? IMG[c.id + "_run_" + Math.floor(t / 5) % RUN_FRAMES]
+                       : IMG[c.id + (Math.floor((t + i * 23) / 32) % 2 ? "_land" : "_stand")];
+    if (chosen) {
+      for (const [ring, alpha] of [[2, 0.3], [1, 0.75]]) {   // stronger, two-step glow
+        ctx.globalAlpha = alpha * (0.8 + 0.2 * Math.sin(t / 8));
+        const glow = glowOf(img);
+        for (const [gx, gy] of [[-ring, 0], [ring, 0], [0, -ring], [0, ring]]) ctx.drawImage(glow, x + gx, y + gy);
+      }
       ctx.globalAlpha = 1;
-      ctx.fillStyle = "#f29a4a";                         // little arrow over their head
-      for (let k = 0; k < 4; k++) ctx.fillRect(x + 12 + k, y - 9 + k, 8 - 2 * k, 1);
+      const bounce = Math.round(Math.sin(t / 6) * 2);       // bigger arrow, bobbing over their head
+      ctx.fillStyle = "#f29a4a";
+      for (let k = 0; k < 6; k++) ctx.fillRect(cx - 6 + k, y - 13 + k + bounce, 12 - 2 * k, 1);
     }
     ctx.drawImage(img, x, y);
     // name and role on a little plate under each person
-    const cx = x + 16;
     ctx.fillStyle = chosen ? "rgba(18,14,23,0.85)" : "rgba(18,14,23,0.6)";
     ctx.fillRect(cx - 28, 151, 56, 28);
-    if (chosen) { ctx.fillStyle = "#f29a4a"; ctx.fillRect(cx - 28, 151, 56, 1); }
+    if (chosen) {                                         // orange border all the way round
+      ctx.strokeStyle = "#f29a4a"; ctx.lineWidth = 1;
+      ctx.strokeRect(cx - 27.5, 151.5, 55, 27);
+    }
     text(c.name, cx, 157, 7, chosen ? "#f29a4a" : "#fff");
     wrap(c.role, 13).forEach((line, j) => text(line, cx, 165 + j * 5, 4.5, "#ffe2b0"));
   });
