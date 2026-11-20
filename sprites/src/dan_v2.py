@@ -129,10 +129,11 @@ ARMS = {
 # Run poses have the near leg (J) forward; the other half of the cycle swaps them.
 LEGS = {
     "stand": {y: v for y, v in ROWS.items() if y >= 24},
-    "run_a": {24: (11, "JJjjjjjjjj"), 25: (9, "jjjj....JJJJ"), 26: (8, "jjjj......JJJJ"),
-              27: (7, "ffff........JJJ"), 28: (7, "FFF.........ffff"), 29: (19, "FFFF")},
-    "run_b": {24: (11, "JJjjjjjjjj"), 25: (9, "jjjj..JJJJ"), 26: (7, "ffjj....JJJJ"),
-              27: (7, "FF......JJJJ"), 28: (15, "ffffff"), 29: (15, "FFFFFF")},
+    # short steps (option C): small strides, both feet stay close to the ground
+    "run_a": {24: (11, "JJjjjjjjjj"), 25: (11, "jjjj.JJJJ"), 26: (10, "jjjj..JJJJ"),
+              27: (9, "jjjj....JJJJ"), 28: (8, "ffff.....fffff"), 29: (8, "FFFF.....FFFFF")},
+    "run_b": {24: (11, "JJjjjjjjjj"), 25: (11, "jjj.JJJJ"), 26: (12, "jjj.JJJ"),
+              27: (11, "ffff.JJJ"), 28: (11, "FFFF.fffff"), 29: (16, "FFFFF")},
     "knee_up": {24: (11, "JJjjjjjjjj"), 25: (11, "jjj.JJJJJJ"), 26: (11, "jjj.JJJJJJ"),
                 27: (11, "jjj.....JJ"), 28: (10, "ffff.....ffff"), 29: (10, "FFFF.....FFFF")},
 }
