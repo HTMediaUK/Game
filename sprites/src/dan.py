@@ -1,4 +1,4 @@
-"""Dan (HT's MD) as the main character: 32x32, facing right, holding a camera.
+"""Dan (HT's MD) as the main character: 32x32, facing right, holding a drone controller.
 
 Drawn as a character grid. Fill pixels are painted first, then a dark outline
 is added automatically around the whole silhouette. Run:
@@ -84,10 +84,11 @@ head = {
     5:  (10, "2222221KKKKk"),
     6:  (10, "222k1kK11k11"),
     7:  (10, "22ks1kkoKkokk"),
-    8:  (10, "21ks11kkkkkkk"),
+    8:  (10, "21ks11kKkkKkk"),   # cheeks lift under the eyes
     9:  (10, "11s111k222221"),
-    10: (11, "1122221wwww2"),
-    11: (11, "112222222221"),
+    10: (11, "11222221ww12"),    # small grin
+    11: (11, "11222222ss21"),    # lower lip
+
     12: (12, "1222222221"),
     13: (13, "11222211"),
     14: (14, "1111"),
@@ -96,28 +97,19 @@ for y, (x0, chars) in head.items():
     row(y, x0, chars)
 put(23, 8, "k")                    # nose
 
-# --- Front arm: sleeve, tattooed forearm, hand under the camera ---
+# --- Arms: tattooed forearm, both hands on a drone controller ---
 rect(17, 15, 19, 17, "b")          # sleeve
 row(17, 17, "aaa")
-row(19, 17, "kttkkttkk")           # forearm with sleeve tattoo
-row(20, 17, "sttkksttk")
-row(18, 26, "kk")                  # front hand cupping the lens
-row(19, 26, "kk")
-row(20, 26, "ks")
-row(16, 20, "k")                   # back hand on the camera body
-row(17, 20, "s")
+row(18, 17, "kttk")                # forearm with sleeve tattoo
+row(19, 17, "sttkk")
+row(17, 21, "k")                   # back hand
+row(18, 21, "kk")                  # front hand
+row(19, 22, "s")
 
-# --- Camera, held at chest height, lens forward ---
-rect(21, 14, 25, 18, "g")          # camera body
-row(14, 21, "GGGGG")               # top edge catches the light
-rect(21, 15, 21, 18, "G")
-row(13, 22, "hGG")                 # viewfinder bump
-put(22, 15, "r")                   # red recording light
-rect(26, 14, 28, 17, "G")          # big round lens
-row(14, 26, "hhh")
-put(26, 17, "g")
-rect(29, 15, 29, 16, "l")          # glass
-put(29, 15, "L")                   # glint
+# --- Drone controller, held at chest height ---
+rect(22, 16, 27, 18, "g")
+row(16, 22, "GhGGhG")              # top face with the two sticks
+put(25, 17, "r")                   # status light
 
 # --- Automatic outline around the silhouette ---
 filled = {(x, y) for y in range(H) for x in range(W) if grid[y][x] != "."}
@@ -132,9 +124,7 @@ for y in range(H):
 for x, y in [(13, 14), (18, 14), (16, 27), (15, 28), (15, 29), (15, 30)]:
     if grid[y][x] not in "kK":
         put(x, y, "o")
-for x in range(17, 26):
-    if grid[18][x] in "ab":
-        put(x, 18, "a")
+
 
 pixels = [
     {"x": x, "y": y, "color": PALETTE[grid[y][x]]}
