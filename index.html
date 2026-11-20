@@ -18,6 +18,7 @@
 // ---------------------------------------------------------------------------
 // HT Dash: HT Media's expo stand game.
 // Plain JavaScript, no engine, no internet needed. Open index.html in Chrome.
+//   Left / Right        choose a runner on the title screen
 //   Space               start, and jump (tap for a hop, hold for a big jump)
 //   Enter               save your name at the end of a run
 //   F                   full screen
@@ -69,7 +70,7 @@ const ASSETS = {
   cape_down: "sprites/landmarks/cape_down.png",
   plane: "sprites/landmarks/plane.png",
 };
-// The HT team. Dan is the default runner; tap Space on the title screen to pick someone else.
+// The HT team. Dan is the default runner; the arrow keys on the title screen pick someone else.
 const CHARS = [
   { id: "dan",   name: "DAN",   role: "Managing Director" },
   { id: "mark",  name: "MARK",  role: "Creative Director" },
@@ -138,8 +139,6 @@ function bestScore() {
 
 // ----------------------------------------------------------------- game state
 let state = "title";            // title | play | crash | name | board
-let holdStart = null;            // when Space went down on the title screen
-const HOLD_MS = 450;             // hold this long to start; a shorter tap picks the next runner
 let t = 0;                      // frames since the page started
 let speed, distance, score, obstacles, nextGap, dan, crashAt, nameText, nameSince, boardRank, boardSince;
 let jumpHeld = false;
@@ -147,7 +146,7 @@ let runClock = 0, landTimer = 0;   // run animation and the squash after landing
 let bufferedAt = -99;              // Space pressed just before landing still counts
 let runTime = 0;                   // frames since this run started (60 a second)
 let wind = [];                     // faint streaks that rush past once the run speeds up
-let take = 1, slateAt = 0;         // clapperboard: today's take number, when it dropped in
+let take = 1;                      // today's take number, shown on the high score slate
 
 // Difficulty rises with time, not distance, so every run is over in about a minute:
 //   0-15s gentle, ground only | 15s seagulls | 25s close pairs, fewer pies
@@ -239,14 +238,8 @@ function update() {
   }
   if (state === "board" && performance.now() - boardSince > 15000) { state = "title"; sel = 0; }
   if (state === "name" && performance.now() - nameSince > NAME_TIMEOUT_MS) { state = "title"; sel = 0; obstacles = []; }
-  if (state === "title" && holdStart && performance.now() - holdStart >= HOLD_MS) {
-    holdStart = null;                                            // held long enough: go
-    newRun();
-    jumpHeld = false;
-  }
   if (state === "crash" && performance.now() - crashAt > 900) {
     state = "name";
-    slateAt = performance.now();
     obstacles = [];
     wind = [];
     nameText = "";
@@ -519,40 +512,6 @@ function slate(x, y, w, h, clap) {
   ctx.strokeRect(x + 3.5, y + 21.5, w - 7, h - 25);    // chalk frame
 }
 
-function easeOut(t) { return 1 - Math.pow(1 - Math.min(1, Math.max(0, t)), 3); }
-
-function drawEndCard() {
-  const ms = performance.now() - slateAt;
-  const drop = easeOut(ms / 220);                      // falls into place...
-  const clap = easeOut((ms - 260) / 120);              // ...then the clapper snaps shut
-  const x = 62, w = 196, h = 128;
-  const y = Math.round(22 - (1 - drop) * 160);
-  slate(x, y, w, h, clap);
-  const L = x + 4, R = x + w - 4, top = y + 22;
-
-  // PROD.
-  label("PROD.", L + 3, top + 2);
-  text("HT DASH", W / 2 + 8, top + 11, 11, CHALK);
-  text(`STARRING ${who().name}`, R - 3, top + 4, 5, CHALK_DIM, "right");
-  chalkLine(L, top + 19, R);
-  // SCORE | TAKE | DATE
-  const c1 = L + Math.round((R - L) * 0.42), c2 = L + Math.round((R - L) * 0.64);
-  chalkLine(c1, top + 19, c1, top + 47);
-  chalkLine(c2, top + 19, c2, top + 47);
-  label("SCORE", L + 3, top + 22);
-  text(String(score), (L + c1) / 2, top + 36, 13, "#ffd98a");
-  label("TAKE", c1 + 3, top + 22);
-  text(String(take), (c1 + c2) / 2, top + 36, 11, CHALK);
-  label("DATE", c2 + 3, top + 22);
-  text(today(), (c2 + R) / 2, top + 36, 7, CHALK);
-  chalkLine(L, top + 47, R);
-  // DIRECTOR: the player's name
-  label("DIRECTOR (TYPE YOUR NAME)", L + 3, top + 50);
-  const cursor = Math.floor(t / 20) % 2 === 0 ? "_" : " ";
-  text(nameText ? nameText + cursor : cursor, W / 2, top + 68, 12, CHALK);
-  chalkLine(L + 14, top + 77, R - 14);
-  text("PRESS ENTER TO SAVE", W / 2, top + 92, 7, nameText.trim() ? CHALK : CHALK_DIM);
-}
 
 function drawScoreSlate() {
   const x = 66, w = 188, h = 150, y = 6;
@@ -599,22 +558,29 @@ function draw() {
     const top = loadScores()[0];
     text(top ? `BEST: ${top.name} ${top.score}` : "No scores yet. Be the first!", W / 2, 46, 7, "#fff");
     text("CHOOSE YOUR RUNNER", W / 2, 70, 9, "#fff");
-    text("TAP SPACE: NEXT RUNNER     HOLD SPACE: PLAY", W / 2, 82, 6, "#ffe2b0");
-    if (holdStart) {                                    // fills while Space is held
-      const k = Math.min(1, (performance.now() - holdStart) / HOLD_MS);
-      ctx.fillStyle = "rgba(18,14,23,0.7)"; ctx.fillRect(W / 2 - 40, 89, 80, 4);
-      ctx.fillStyle = "#f29a4a"; ctx.fillRect(W / 2 - 39, 90, Math.round(78 * k), 2);
-    }
+    text("LEFT / RIGHT: CHOOSE      SPACE: PLAY", W / 2, 82, 7, "#ffe2b0");
   }
 
-  if (state === "name") drawEndCard();
+  if (state === "name") {
+    panel(60, 30, 200, 96);
+    text("GAME OVER", W / 2, 44, 14, "#f29a4a");
+    text(`You scored ${score}`, W / 2, 60, 9, "#fff");
+    text("Type your name for the high scores:", W / 2, 76, 7, "#ffe2b0");
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(90, 84, 140, 16);
+    ctx.fillStyle = "#120e17";
+    ctx.fillRect(91, 85, 138, 14);
+    const cursor = Math.floor(t / 20) % 2 === 0 ? "_" : " ";
+    text(nameText + cursor, W / 2, 92.5, 9, "#fff");
+    text("Press ENTER to save", W / 2, 112, 7, nameText.trim() ? "#fff" : "#8a8494");
+  }
   if (state === "board") drawScoreSlate();
 }
 
 // ----------------------------------------------------------------- input
 function pressStart() {
-  if (state === "title") holdStart = performance.now();          // tap = next runner, hold = play
-  else if (state === "board") { sel = 0; state = "title"; holdStart = null; }   // Dan is the default again
+  if (state === "title") { newRun(); jumpHeld = false; }
+  else if (state === "board") { sel = 0; state = "title"; }       // Dan is the default again
   else if (state === "play") { jumpHeld = true; if (!dan.onGround) bufferedAt = t; jump(); }
 }
 
@@ -643,18 +609,18 @@ addEventListener("keydown", e => {
     else document.exitFullscreen?.();
     return;
   }
+  if (state === "title" && (e.key === "ArrowLeft" || e.key === "ArrowRight")) {   // pick a runner
+    e.preventDefault();
+    sel = (sel + (e.key === "ArrowRight" ? 1 : CHARS.length - 1)) % CHARS.length;
+    return;
+  }
   if (e.key === " " && !e.repeat) {
     e.preventDefault();
     pressStart();
   }
 });
 addEventListener("keyup", e => {
-  if (e.key !== " ") return;
-  jumpHeld = false;
-  if (state === "title" && holdStart) {                          // a short tap: next runner
-    sel = (sel + 1) % CHARS.length;
-    holdStart = null;
-  }
+  if (e.key === " ") jumpHeld = false;
 });
 // The game is played with Space only. A click just gives the page keyboard focus.
 canvas.addEventListener("pointerdown", () => canvas.focus());

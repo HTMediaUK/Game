@@ -28,19 +28,19 @@ python3 tools/build_single_file.py
 
 ## Controls
 
-The game is played with the **spacebar** only.
+Pick a runner with the arrow keys, then the game is played with the **spacebar** only.
 
 | Key | What it does |
 |---|---|
-| Space (title screen) | Tap to pick the next runner, hold to start |
-| Space (playing) | Jump. Tap for a small hop, hold for a big jump |
+| Left / Right arrows | Choose a runner on the title screen |
+| Space | Start, then jump. Tap for a small hop, hold for a big jump |
 | Type, then Enter | Add your name to the high scores at the end of a run |
 | F | Full screen on or off |
 | Ctrl+Alt+R | Clear the high score table (asks first) |
 
 ## The runners
 
-Dan (Managing Director) is the default. Tap Space on the title screen to play as Mark (Creative Director), Beth (Operations & Creative Coordinator), Sam (Editor) or Jonas (Creative Producer) instead. After each run it goes back to Dan. Everyone runs, jumps and wears the cape the same way. The artwork is in `sprites/characters/`, drawn by `sprites/src/characters.py`.
+Dan (Managing Director) is the default. Use the left and right arrows on the title screen to play as Mark (Creative Director), Beth (Operations & Creative Coordinator), Sam (Editor) or Jonas (Creative Producer) instead. After each run it goes back to Dan. Everyone runs, jumps and wears the cape the same way. The artwork is in `sprites/characters/`, drawn by `sprites/src/characters.py`.
 
 ## Getting harder
 
