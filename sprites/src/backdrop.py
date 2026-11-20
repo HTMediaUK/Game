@@ -15,7 +15,19 @@ Also writes a still preview and a scrolling GIF with Dan on the ground.
 import math
 import random
 from pathlib import Path
+import sys
 from PIL import Image
+
+sys.path.insert(0, str(Path(__file__).parent))
+import landmarks  # noqa: E402
+
+# Client landmarks on the near hills: (left x, drawing function)
+LANDMARK_SPOTS = [(104, landmarks.hospital), (226, landmarks.old_mine)]
+LANDMARK_IMAGES = [(x, fn()) for x, fn in LANDMARK_SPOTS]
+# Cows grazing in the fields (for ARN): (x, depth below the ridge, facing right?)
+COW = landmarks.field_cow()
+COW_SPOTS = [(10, 6, False), (24, 14, True), (40, 5, False), (82, 15, True),
+             (160, 6, True), (196, 15, False), (268, 5, False), (300, 14, True)]
 
 W, H = 320, 180
 GROUND_Y = 148
@@ -67,11 +79,14 @@ def turbine(img, x, base_y, tower, blade, angle, col, shade):
 # ---------------------------------------------------------------- sky
 def sky():
     img = Image.new("RGBA", (W, H), hexc("#4cb4d4"))
-    bands = [(58, "#7ad7ea"), (98, "#b4f2f8")]
-    bump = [0, 1, 2, 3, 2, 1, 0, 0]          # little pointed scallops
-    for top, colour in bands:
+    # each band edge rolls in its own gentle wave, with little scallops on top
+    bands = [(58, "#7ad7ea", ((6, 2, 0.3), (3, 5, 1.7))),
+             (98, "#b4f2f8", ((5, 3, 2.1), (3, 1, 0.4)))]
+    bump = [0, 1, 2, 3, 2, 1, 0, 0]
+    for top, colour, parts in bands:
         for x in range(W):
-            for y in range(top - bump[x % len(bump)], H):
+            edge = top + round(wave(x, *parts)) - bump[x % len(bump)]
+            for y in range(edge, H):
                 img.putpixel((x, y), hexc(colour))
     return img
 
@@ -198,6 +213,14 @@ def hills_mid(frame):
                     else:
                         col = "#3d7f39"
                     img.putpixel(((x + dx) % W, y + dy), hexc(col))
+    from PIL import ImageOps
+    for x0, depth, flip in COW_SPOTS:
+        im = ImageOps.mirror(COW) if flip else COW
+        y = max(mid_ridge(x) for x in range(x0, x0 + im.width)) + depth
+        img.alpha_composite(im, (x0, y - im.height + 2))
+    for x0, im in LANDMARK_IMAGES:            # sit each one on the lowest point of its plot
+        base = max(mid_ridge(x) for x in range(x0, x0 + im.width)) + 3
+        img.alpha_composite(im, (x0, base - im.height))
     for i, (x, tower) in enumerate(MID_TURBINES):
         angle = frame * TAU / 12 + i * 1.3
         turbine(img, x, mid_ridge(x) + 2, tower, tower // 3, angle,
@@ -248,7 +271,7 @@ def main():
         far[f].save(OUT / f"hills_far_{f}.png")
         mid[f].save(OUT / f"hills_mid_{f}.png")
 
-    dan_path = OUT.parent / "dan" / "dan_v2_idle.png"
+    dan_path = OUT.parent / "dan" / "dan_v2_stand.png"
     dan = Image.open(dan_path).convert("RGBA") if dan_path.exists() else None
 
     def scene(t):

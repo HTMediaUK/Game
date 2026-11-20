@@ -1,6 +1,6 @@
 # Dan's Dash: HT's expo game
 
-A simple pixel art running game for HT Media's trade show stand. Dan runs through the British countryside with his drone overhead, jumping over camera kit, cows and sheep. It runs in a web browser, needs no internet and nothing to install.
+A simple pixel art running game for HT Media's trade show stand. Dan runs through the British countryside with his drone overhead, jumping over camera kit, cows and sheep, and grabbing pies for super jumps. It runs in a web browser, needs no internet and nothing to install.
 
 ## How to play it on the stand laptop
 
@@ -24,6 +24,14 @@ Alt+F4 closes it.
 | Type, then Enter | Add your name to the high scores at the end of a run |
 | F | Full screen on or off |
 | Ctrl+Alt+R | Clear the high score table (asks first) |
+
+## Pie power
+
+Every so often a pie floats past at jump height. Grab it and Dan jumps twice as high for 10 seconds (the timer is at the top of the screen). While powered up he bounces off anything he lands on.
+
+## Client cameos
+
+The hills feature some of HT's clients as generic buildings, with no names or logos: a hospital (Newcastle Hospitals), cows grazing in the fields (ARN), an old pit headframe and winding house (Mining Remediation Authority) and a small white plane in the sky (HII project).
 
 ## High scores
 

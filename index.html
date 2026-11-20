@@ -21,6 +21,7 @@
 //   Space / Up / click  jump (hold for a higher jump)
 //   F                   full screen
 //   Ctrl+Alt+R          clear the high score table (asks first)
+// Collect a pie to jump twice as high for 10 seconds (and bounce off things you land on).
 // High scores are saved in this browser on this laptop (localStorage).
 // ---------------------------------------------------------------------------
 
@@ -58,6 +59,8 @@ const ASSETS = {
   sheep_1: "sprites/obstacles/sheep_1.png",
   cow_0: "sprites/obstacles/cow_0.png",
   cow_1: "sprites/obstacles/cow_1.png",
+  pie: "sprites/landmarks/pie.png",
+  plane: "sprites/landmarks/plane.png",
 };
 for (let i = 0; i < 4; i++) {
   ASSETS["dan_run_" + i] = `sprites/dan/dan_v2_run_${i}.png`;
@@ -109,6 +112,8 @@ let state = "title";            // title | play | crash | name | board
 let t = 0;                      // frames since the page started
 let speed, distance, score, obstacles, nextGap, dan, crashAt, nameText, nameSince, boardRank, boardSince;
 let jumpHeld = false;
+let pies = [], pieGap = 0, power = 0, pieFlash = 0;
+const POWER_FRAMES = 600;        // pie power lasts 10 seconds
 
 function newRun() {
   speed = 2.4;
@@ -117,12 +122,16 @@ function newRun() {
   obstacles = [];
   nextGap = 140;
   dan = { x: 50, y: GROUND_Y - 30, vy: 0, onGround: true };
+  pies = [];
+  pieGap = 700 + Math.random() * 500;
+  power = 0;
+  pieFlash = 0;
   state = "play";
 }
 
 function jump() {
   if (dan.onGround) {
-    dan.vy = -5.3;
+    dan.vy = power > 0 ? -7.5 : -5.3;   // pie power: twice as high
     dan.onGround = false;
   }
 }
@@ -135,6 +144,7 @@ function spawn() {
   obstacles.push({ kind, x: W + 4, y: GROUND_Y - im.height + 1, w: im.width, h: im.height });
   // gap grows with speed so jumps stay fair
   nextGap = (110 + Math.random() * 130) * (0.7 + speed / 6);
+  if (power > 0) nextGap *= 1.7;   // super jumps hang longer, so leave room to land
 }
 
 function hit(o) {
@@ -172,12 +182,36 @@ function update() {
 
   nextGap -= speed;
   if (nextGap <= 0) spawn();
+
+  // pies float at jump height, in gaps between obstacles
+  pieGap -= speed;
+  if (pieGap <= 0 && !obstacles.some(o => o.x > W - 70)) {
+    pies.push({ x: W + 4, y: GROUND_Y - 64 });
+    pieGap = 1100 + Math.random() * 900;
+  }
+  for (const p of pies) p.x -= speed;
+  pies = pies.filter(p => {
+    const got = dan.x + 22 > p.x + 2 && dan.x + 10 < p.x + 16 && dan.y + 4 < p.y + 14 && dan.y + 29 > p.y + 2;
+    if (got) { power = POWER_FRAMES; pieFlash = 70; }
+    return !got && p.x > -20;
+  });
+  if (power > 0) power--;
+  if (pieFlash > 0) pieFlash--;
   for (const o of obstacles) o.x -= speed + (o.kind.walk || 0);
   obstacles = obstacles.filter(o => o.x + o.w > -4);
 
-  if (obstacles.some(hit)) {
+  for (const o of obstacles) {
+    if (!hit(o)) continue;
+    // with pie power, coming down on top of something bounces Dan off it
+    const feetBefore = dan.y + 29 - dan.vy;
+    if (power > 0 && dan.vy > 0 && feetBefore <= o.y + 6) {
+      dan.y = o.y - 30;
+      dan.vy = -4.2;
+      continue;
+    }
     state = "crash";
     crashAt = performance.now();
+    break;
   }
 }
 
@@ -210,10 +244,16 @@ function drawWorld() {
   const turbine = Math.floor(t / 6) % 4;
   ctx.drawImage(IMG.sky, 0, 0);
   tileLayer(IMG.clouds, t * 0.1 + distance * 0.05);
+  // the small white plane crosses the sky every so often
+  const px = (t * 0.35) % (W + 600) - 40;
+  if (px < W + 10) ctx.drawImage(IMG.plane, Math.round(px), Math.round(38 + Math.sin(t / 40) * 2));
   tileLayer(IMG["far_" + turbine], distance * 0.1);
   tileLayer(IMG["mid_" + turbine], distance * 0.3);
   tileLayer(IMG.ground, distance);
 
+  for (const p of (state === "play" || state === "crash") ? pies : []) {
+    ctx.drawImage(IMG.pie, Math.round(p.x), Math.round(p.y + Math.sin(t / 10) * 1.5));
+  }
   for (const o of obstacles || []) {
     const f = o.kind.frames;
     const im = IMG[f[Math.floor(t / 10) % f.length]];
@@ -232,10 +272,20 @@ function drawWorld() {
   ctx.drawImage(danImg, Math.round(d.x), Math.round(d.y));
   const bob = Math.round(Math.sin(t / 12) * 2);
   ctx.drawImage(IMG.drone, (Math.floor(t / 3) % 2) * 24, 0, 24, 10,
-                Math.round(d.x + 6), Math.round(Math.min(d.y, GROUND_Y - 30) - 26 + bob), 24, 10);
+                Math.round(d.x + 6), Math.max(1, Math.round(d.y - 26 + bob)), 24, 10);
 }
 
 function drawHud() {
+  if (power > 0) {
+    // pie power timer, top left
+    // pie power timer, top centre (clear of the drone and the score)
+    ctx.drawImage(IMG.pie, W / 2 - 38, 4);
+    ctx.fillStyle = "rgba(18,14,23,0.8)";
+    ctx.fillRect(W / 2 - 18, 9, 52, 7);
+    ctx.fillStyle = power < 120 && Math.floor(t / 8) % 2 ? "#fff" : "#e8a24a";
+    ctx.fillRect(W / 2 - 17, 10, Math.ceil(50 * power / POWER_FRAMES), 5);
+  }
+  if (pieFlash > 0) text("PIE POWER! SUPER JUMP!", W / 2, 50, 10, "#ffd98a");
   text(`SCORE ${String(score).padStart(5, "0")}`, W - 6, 10, 8, "#fff", "right");
   text(`BEST ${String(Math.max(bestScore(), score)).padStart(5, "0")}`, W - 6, 20, 7, "#ffe2b0", "right");
 }
