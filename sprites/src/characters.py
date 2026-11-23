@@ -117,8 +117,8 @@ JONAS_HEAD = {
     9:  (9,  "skKOKoOKOKoOKs"),     # eyes inside the lenses
     10: (9,  "kKKKOOKsKOOKKh"),     # earring
     11: (10, "kkKKKKmmmKKk"),
-    12: (11, "skkkBBBBkkk"),        # goatee
-    13: (12, "sskBBBBks"),
+    12: (11, "skkkkkkkkkk"),        # clean-shaven chin
+    13: (12, "sskkkkkks"),
     14: (14, "ssss"),
 }
 JONAS_TORSO = {
@@ -163,8 +163,51 @@ MARK_TORSO = {
     23: (11, "UUUUUUUUUU"),
 }
 
+# ---------------------------------------------------------------- Dave
+DAVE_HEAD = {
+    0:  (12, "zzzzyy"),             # white hair swept up and back
+    1:  (10, "zzzzzyyyyyy"),
+    2:  (9,  "zzzyyyyyyyyyx"),
+    3:  (9,  "yyyyyyyyyyyyyx"),
+    4:  (9,  "yyyyyyyyyyyyxx"),
+    5:  (9,  "yxKKKKKKKKKKKx"),
+    6:  (9,  "xKKKxxKKKxxKKx"),     # grey brows
+    7:  (9,  "kKOOOOOKOOOOOk"),     # black rectangular glasses
+    8:  (9,  "kOOLoKOOOLoKOk"),     # arms back to the ears, eyes behind the lenses
+    9:  (9,  "sKOKoKOKOKoKOs"),
+    10: (9,  "kKOOOOOsOOOOOk"),
+    11: (10, "kkBBBBmmmBBk"),       # grey moustache, smile
+    12: (11, "sBBBBBBBBBs"),        # short grey beard
+    13: (12, "VBBBBBBBV"),
+    14: (14, "ssss"),
+}
+
+
+def dave_shirt(x, y):
+    """Olive check with navy stripes and a thin mustard line."""
+    vx, hy = x % 6 in (0, 1), y % 6 in (0, 1)
+    if vx and hy:
+        return "H"
+    if vx or hy:
+        return "n"
+    return "M" if x % 6 == 4 or y % 6 == 4 else "v"
+
+
+DAVE_TORSO = {
+    15: row_of(10, 21, 15, lambda x, y: "k" if 14 <= x <= 17 else dave_shirt(x, y)),   # open collar
+    16: row_of(10, 21, 16, lambda x, y: "k" if 15 <= x <= 16 else dave_shirt(x, y)),
+    **{y: row_of(11, 20, y, lambda x, y: ("h" if y in (18, 21) else "H") if x == 16 else dave_shirt(x, y))
+       for y in range(17, 23)},
+    23: row_of(11, 20, 23, lambda x, y: "H"),
+}
+
 CHARACTERS = {
     "dan":   {"name": "Dan", "role": "Managing Director"},
+    "dave":  {"name": "Dave", "role": "Production Director", "head": DAVE_HEAD, "torso": DAVE_TORSO,
+              "palette": {"x": "#a2a2a6", "y": "#d4d4d2", "z": "#f4f4f2", "B": "#b4aca4", "V": "#8a827c",
+                          "O": "#16121a", "m": "#b0605a",
+                          "v": "#6a7a3a", "n": "#2c3a64", "H": "#1c2648", "M": "#c8a040",
+                          "c": "#6a7a3a", "b": "#4c5a2c", **SKIN_ARMS}},
     "mark":  {"name": "Mark", "role": "Creative Director", "head": MARK_HEAD, "torso": MARK_TORSO,
               "palette": {"x": "#7e4526", "y": "#b06a3c", "z": "#d9925a", "m": "#a65a4a",
                           "c": "#c9d4f2", "b": "#a8b6e0", "j": "#2c3550", "J": "#3e4a6c", **SKIN_ARMS}},

@@ -39,13 +39,9 @@ Pick a runner with the arrow keys, then the game is played with the **spacebar**
 | Ctrl+Alt+R | Clear the high score table (asks first). Saved entries are kept |
 | Ctrl+Alt+E | Download every entry (name, work email, score, runner, date, time) as a spreadsheet (CSV) |
 
-## Dan's 3D spin
-
-When you play as Dan, he spins round once in the air on every jump, so you see his side and back. The spin frames are a little 3D model made of cubes, built from his sprite and rendered back into pixel art by `sprites/src/voxel_mockup.py`. Only Dan has it for now.
-
 ## The runners
 
-Dan (Managing Director) is the default. Use the left and right arrows on the title screen to play as Mark (Creative Director), Beth (Operations & Creative Coordinator), Sam (Editor) or Jonas (Creative Producer) instead. After each run it goes back to Dan. Everyone runs, jumps and wears the cape the same way. The artwork is in `sprites/characters/`, drawn by `sprites/src/characters.py`.
+Dan (Managing Director) is the default. Use the left and right arrows on the title screen to play as Dave (Production Director), Mark (Creative Director), Beth (Operations & Creative Coordinator), Sam (Editor) or Jonas (Creative Producer) instead. After each run it goes back to Dan. Everyone runs, jumps and wears the cape the same way. The artwork is in `sprites/characters/`, drawn by `sprites/src/characters.py`.
 
 ## Getting harder
 
@@ -95,6 +91,8 @@ The top 10 are saved in Chrome on that laptop, so they survive closing the game 
 | Path | What it is |
 |---|---|
 | `index.html` | The whole game |
+| `sprites/ui/` | The HT logo as pixel art, shown top left on every screen (`sprites/src/ht_logo.py`) |
+| `sprites/mockups/` | Ideas not in the game: Dan's 3D spin, three select screen designs |
 | `dist/HT-Dash.html` | The same game packed into one file to send to people |
 | `tools/build_single_file.py` | Rebuilds `dist/HT-Dash.html` |
 | `sprites/` | All the artwork as PNGs |

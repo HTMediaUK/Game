@@ -27,4 +27,7 @@ Format: `- **G-###** (seen n) Rule. *(source · DD/MM/YYYY)*`
 
 ## Team (as shown in the game)
 
-- **G-012** (seen 1) Runners and roles: Dan, Managing Director (default); Mark, Creative Director; Beth, Operations & Creative Coordinator; Sam, Editor; Jonas, Creative Producer. *(HT · 20/11/2026)*
+- **G-012** (seen 1) Runners and roles: Dan, Managing Director (default); Dave, Production Director; Mark, Creative Director; Beth, Operations & Creative Coordinator; Sam, Editor; Jonas, Creative Producer. *(HT · 20/11/2026, Dave added 23/11/2026)*
+- **G-013** (seen 1) Characters stay flat 2D in the game; the 3D spin was tried and dropped. *("Go back to simple 2D Dan" · 23/11/2026)*
+- **G-014** (seen 1) Jonas has no goatee. *("Remove the goatee from Jonas" · 23/11/2026)*
+- **G-015** (seen 1) The HT logo sits top left on every screen. *(HT · 23/11/2026)*

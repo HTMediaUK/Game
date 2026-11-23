@@ -9,6 +9,7 @@ dark outline.
     python3 sprites/src/voxel_mockup.py
 
 Writes sprites/mockups/dan_turntable.png and sprites/mockups/dan_spin_jump.gif.
+Mockup only: the game uses flat 2D sprites.
 """
 import math
 from pathlib import Path
@@ -142,12 +143,6 @@ def render(col, fill, yaw, pitch=0.16, size=56, scale=1.0):
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
     col, fill = build()
-
-    # game frames for Dan's spin jump: the model turning through 30-330 degrees
-    # (front on, the game uses his drawn sprite)
-    game_dir = ROOT / "characters" / "dan"
-    for i, deg in enumerate(range(30, 331, 30)):
-        render(col, fill, math.radians(deg)).save(game_dir / f"spin_{i:02d}.png")
 
     # turntable: eight angles, plus the current flat sprite for comparison
     angles = [i * math.pi / 4 for i in range(8)]

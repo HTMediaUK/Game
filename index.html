@@ -61,6 +61,7 @@ const ASSETS = {
   cow_0: "sprites/obstacles/cow_0.png",
   cow_1: "sprites/obstacles/cow_1.png",
   pie: "sprites/landmarks/pie.png",
+  ht_logo: "sprites/ui/ht_logo.png",
   seagull_0: "sprites/obstacles/seagull_0.png",
   seagull_1: "sprites/obstacles/seagull_1.png",
   drone_0: "sprites/obstacles/drone_0.png",
@@ -74,6 +75,7 @@ const ASSETS = {
 // The HT team. Dan is the default runner; the arrow keys on the title screen pick someone else.
 const CHARS = [
   { id: "dan",   name: "DAN",   role: "Managing Director" },
+  { id: "dave",  name: "DAVE",  role: "Production Director" },
   { id: "mark",  name: "MARK",  role: "Creative Director" },
   { id: "beth",  name: "BETH",  role: "Operations & Creative Coordinator" },
   { id: "sam",   name: "SAM",   role: "Editor" },
@@ -82,9 +84,6 @@ const CHARS = [
 let sel = 0;                      // which runner is chosen
 const who = () => CHARS[sel];
 const RUN_FRAMES = 6;
-const SPIN_FRAMES = 11;          // Dan's 3D spin: the model at 30, 60 ... 330 degrees
-for (let i = 0; i < SPIN_FRAMES; i++) ASSETS["dan_spin_" + i] = `sprites/characters/dan/spin_${String(i).padStart(2, "0")}.png`;
-const SPIN_TIME = 30;            // a spin takes half a second in the air
 for (const c of CHARS) {
   for (const f of ["stand", "jump_up", "jump_down", "land", ...[0, 1, 2, 3, 4, 5].map(i => "run_" + i)]) {
     ASSETS[`${c.id}_${f}`] = `sprites/characters/${c.id}/${f}.png`;
@@ -211,7 +210,6 @@ function newRun() {
 function jump() {
   if (dan.onGround) {
     dan.vy = power > 0 ? -7.5 : -5.3;   // pie power: twice as high
-    dan.spin = who().id === "dan" ? 0 : -1;   // only Dan spins (for now)
     dan.onGround = false;
   }
 }
@@ -298,7 +296,7 @@ function update() {
     dan.vy = Math.min(dan.vy + g, 6.5);
     dan.y += dan.vy;
     if (dan.y >= GROUND_Y - 30) {
-      dan.y = GROUND_Y - 30; dan.vy = 0; dan.onGround = true; landTimer = 6; dan.spin = -1;
+      dan.y = GROUND_Y - 30; dan.vy = 0; dan.onGround = true; landTimer = 6;
       if (t - bufferedAt <= 8 && jumpHeld) jump();   // pressed just before landing
     }
   }
@@ -312,8 +310,6 @@ function update() {
   }
   for (const w of wind) w.x -= w.vx;
   wind = wind.filter(w => w.x + w.len > 0);
-
-  if (!dan.onGround && dan.spin >= 0 && dan.spin < SPIN_TIME) dan.spin++;
 
   // about 10 frames a second, picking up gently to about 14 at top speed
   if (dan.onGround) runClock += 0.16 * Math.sqrt(speed / 2.4);
@@ -401,7 +397,7 @@ function glowOf(img) {
 // Title screen: the whole team stands on the grass; the chosen runner jogs on the spot and glows.
 function drawLineup() {
   CHARS.forEach((c, i) => {
-    const x = 20 + i * 60, y = GROUND_Y - 30, cx = x + 16;
+    const x = 12 + i * 50, y = GROUND_Y - 30, cx = x + 16;   // six across
     const chosen = i === sel;
     if (chosen) {
       // soft spotlight beam and a pool of light at their feet
@@ -430,13 +426,13 @@ function drawLineup() {
     ctx.drawImage(img, x, y);
     // name and role on a little plate under each person
     ctx.fillStyle = chosen ? "rgba(18,14,23,0.85)" : "rgba(18,14,23,0.6)";
-    ctx.fillRect(cx - 28, 151, 56, 28);
+    ctx.fillRect(cx - 24, 151, 48, 28);
     if (chosen) {                                         // orange border all the way round
       ctx.strokeStyle = "#f29a4a"; ctx.lineWidth = 1;
-      ctx.strokeRect(cx - 27.5, 151.5, 55, 27);
+      ctx.strokeRect(cx - 23.5, 151.5, 47, 27);
     }
     text(c.name, cx, 157, 7, chosen ? "#f29a4a" : "#fff");
-    wrap(c.role, 13).forEach((line, j) => text(line, cx, 165 + j * 5, 4.5, "#ffe2b0"));
+    wrap(c.role, 12).forEach((line, j) => text(line, cx, 165 + j * 5, 4.3, "#ffe2b0"));
   });
 }
 
@@ -488,19 +484,7 @@ function drawWorld() {
   } else if (state === "board") {
     danImg = IMG[id + "_run_" + Math.floor(t / 6) % RUN_FRAMES];
   }
-  // Dan's spin: ease round once; front-on (start and end) he's his normal drawn sprite
-  let ox = 0, oy = 0, spinning = false;
-  if (state === "play" && !d.onGround && d.spin >= 0 && d.spin < SPIN_TIME) {
-    const k = d.spin / SPIN_TIME;
-    const turn = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;   // ease in and out
-    const step = Math.round(turn * (SPIN_FRAMES + 1));
-    if (step >= 1 && step <= SPIN_FRAMES) {
-      danImg = IMG["dan_spin_" + (step - 1)];
-      ox = -12; oy = -14;                                 // the 3D frames are bigger, centred on him
-      spinning = true;
-    }
-  }
-  if (!spinning && power > 0 && (state === "play" || state === "crash") && (power > 120 || Math.floor(t / 6) % 2)) {
+  if (power > 0 && (state === "play" || state === "crash") && (power > 120 || Math.floor(t / 6) % 2)) {
     // superhero cape while pie power lasts (it flickers in the last two seconds)
     const cape = !d.onGround ? (d.vy < 0 ? IMG.cape_up : IMG.cape_down) : IMG["cape_run_" + Math.floor(t / 6) % 2];
     ctx.drawImage(cape, Math.round(d.x - 6), Math.round(d.y + 5));
@@ -509,10 +493,10 @@ function drawWorld() {
     // subtle golden glow round Dan while he's super, gently pulsing
     ctx.globalAlpha = 0.35 + 0.15 * Math.sin(t / 8);
     const glow = glowOf(danImg);
-    for (const [gx, gy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) ctx.drawImage(glow, Math.round(d.x + ox) + gx, Math.round(d.y + oy) + gy);
+    for (const [gx, gy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) ctx.drawImage(glow, Math.round(d.x) + gx, Math.round(d.y) + gy);
     ctx.globalAlpha = 1;
   }
-  ctx.drawImage(danImg, Math.round(d.x + ox), Math.round(d.y + oy));
+  ctx.drawImage(danImg, Math.round(d.x), Math.round(d.y));
 }
 
 function drawHud() {
@@ -651,6 +635,7 @@ function draw() {
     text("We save your email on this laptop for HT Media only.", W / 2, 152, 5, "#8a8494");
   }
   if (state === "board") drawScoreSlate();
+  ctx.drawImage(IMG.ht_logo, 4, 4);                       // HT logo, top left, on every screen
 }
 
 // ----------------------------------------------------------------- input
