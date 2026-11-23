@@ -61,11 +61,24 @@ const ASSETS = {
   sheep_1: "sprites/obstacles/sheep_1.png",
   cow_0: "sprites/obstacles/cow_0.png",
   cow_1: "sprites/obstacles/cow_1.png",
+  hereford_0: "sprites/obstacles/hereford_0.png",
+  hereford_1: "sprites/obstacles/hereford_1.png",
+  belted_0: "sprites/obstacles/belted_0.png",
+  belted_1: "sprites/obstacles/belted_1.png",
+  jersey_0: "sprites/obstacles/jersey_0.png",
+  jersey_1: "sprites/obstacles/jersey_1.png",
   bollard: "sprites/obstacles/bollard.png",
   container: "sprites/obstacles/container.png",
   port_mid: "sprites/backdrop/port_mid.png",
   port_ground: "sprites/backdrop/port_ground.png",
   trans_ground: "sprites/backdrop/trans_ground.png",
+  canal_far: "sprites/backdrop/canal_far.png",
+  canal_mid: "sprites/backdrop/canal_mid.png",
+  canal_ground: "sprites/backdrop/canal_ground.png",
+  trans2_mid: "sprites/backdrop/trans2_mid.png",
+  trans2_ground: "sprites/backdrop/trans2_ground.png",
+  highland_cow_0: "sprites/obstacles/highland_cow_0.png",
+  highland_cow_1: "sprites/obstacles/highland_cow_1.png",
   pie: "sprites/landmarks/pie.png",
   seagull_0: "sprites/obstacles/seagull_0.png",
   seagull_1: "sprites/obstacles/seagull_1.png",
@@ -107,6 +120,7 @@ for (let i = 0; i < 4; i++) {
   ASSETS["port_far_" + i] = `sprites/backdrop/port_far_${i}.png`;
   ASSETS["trans_far_" + i] = `sprites/backdrop/trans_far_${i}.png`;   // field-to-port pieces
   ASSETS["trans_mid_" + i] = `sprites/backdrop/trans_mid_${i}.png`;
+  ASSETS["trans2_far_" + i] = `sprites/backdrop/trans2_far_${i}.png`;   // port-to-canal pieces
 }
 function loadAll() {
   return Promise.all(Object.entries(ASSETS).map(([k, src]) => new Promise((ok, fail) => {
@@ -121,12 +135,19 @@ function loadAll() {
 const OBSTACLES = [
   { name: "tripod",               frames: ["tripod"],               weight: 3, from: 0 },
   { name: "flight_case",          frames: ["flight_case"],          weight: 3, from: 0 },
-  { name: "sheep",                frames: ["sheep_0", "sheep_1"],   weight: 3, from: 0,   walk: 0.4, zone: "country" },
+  { name: "sheep",                frames: ["sheep_0", "sheep_1"],   weight: 3, from: 0,   walk: 0.4, zone: ["country", "canal"] },
   { name: "flight_cases_stacked", frames: ["flight_cases_stacked"], weight: 2, from: 10 },
-  { name: "cow",                  frames: ["cow_0", "cow_1"],       weight: 2, from: 8, walk: 0.25, zone: "country" },
+  // a herd of UK breeds in the countryside, each turning up now and then
+  { name: "cow",                  frames: ["cow_0", "cow_1"],             weight: 0.6, from: 8, walk: 0.25, zone: ["country"] },
+  { name: "hereford",             frames: ["hereford_0", "hereford_1"],   weight: 0.4, from: 8, walk: 0.25, zone: ["country"] },
+  { name: "belted",               frames: ["belted_0", "belted_1"],       weight: 0.4, from: 8, walk: 0.25, zone: ["country"] },
+  { name: "jersey",               frames: ["jersey_0", "jersey_1"],       weight: 0.4, from: 8, walk: 0.25, zone: ["country"] },
+  { name: "highland_field",       frames: ["highland_cow_0", "highland_cow_1"], weight: 0.6, from: 8, walk: 0.25, zone: ["country"] },
   // on the quayside (after 15 seconds)
-  { name: "bollard",              frames: ["bollard"],              weight: 3, from: 15, zone: "port" },
-  { name: "container",            frames: ["container"],            weight: 2, from: 17, zone: "port" },
+  { name: "bollard",              frames: ["bollard"],              weight: 3, from: 15, zone: ["port", "canal"] },
+  { name: "container",            frames: ["container"],            weight: 2, from: 17, zone: ["port"] },
+  // on the canal towpath (after 30 seconds)
+  { name: "highland_cow",         frames: ["highland_cow_0", "highland_cow_1"], weight: 3, from: 30, walk: 0.25, zone: ["canal"] },
   { name: "roadblock",            frames: ["roadblock_0", "roadblock_1"], weight: 2, from: 20, blink: 24 },
   // seagulls fly towards Dan: low ones at chest height (jump over them),
   // high ones at jump height (don't jump, or just tap for a small hop)
@@ -279,26 +300,33 @@ let stomps = 0;                    // each +5 takes the next HT colour
 // the brighter HT logo colours, in ring order (the darkest ones get lost against the sky)
 const STOMP_COLOURS = ["#c49782", "#66bfad", "#d97e30", "#c45b66", "#9dbc3e", "#e1a22e",
   "#47984a", "#e5c41f", "#b85895", "#138aa8", "#8883b5", "#b2383e"];
-let portStart = null;              // where (in each layer's own scroll) the field-to-port piece begins
+let zoneStarts = null;             // per layer: where (in its own scroll) each next area's piece begins
 let take = 1;                      // today's take number, shown on the high score slate
 
 // Difficulty rises with time, not distance, so every run is over in about a minute:
 //   0-15s gentle, ground only | 15s seagulls | 25s close pairs, fewer pies
 //   40s no more pies | 50s+ speed keeps climbing past what people can react to
 function secs() { return runTime / 60; }
-// The world: countryside for the first 15 seconds, then the port slides in from the right.
-const PORT_AT = 15;
-// The port arrives as part of the world: at 15 seconds each layer's field-to-port piece is lined up
-// just off the right edge, on that layer's own tile boundary, so it scrolls in at the layer's speed.
+// The world runs through three areas: countryside, then a port at 15 seconds, then a Scottish
+// canal at 30. Each new area arrives as part of the world: its in-between piece is lined up just
+// off the right edge on each layer's own tile boundary, so it scrolls in at that layer's speed.
+const ZONES = ["country", "port", "canal"];
+const ZONE_AT = [15, 30];
 const LAYER_SPEED = { far: 0.1, mid: 0.3, ground: 1 };
-function startPort() {
-  const at = f => Math.ceil((Math.floor(distance * f) + W) / W) * W;
-  portStart = { far: at(LAYER_SPEED.far), mid: at(LAYER_SPEED.mid), ground: at(LAYER_SPEED.ground) };
+function startNextZone() {
+  if (!zoneStarts) zoneStarts = { far: [], mid: [], ground: [] };
+  for (const [name, f] of Object.entries(LAYER_SPEED)) {
+    const list = zoneStarts[name];
+    const at = Math.ceil((Math.floor(distance * f) + W) / W) * W;
+    list.push(list.length ? Math.max(at, list[list.length - 1] + W) : at);   // at least one tile of each area
+  }
 }
-function onQuay() {        // has the quay reached the point where obstacles appear?
-  return !!portStart && portStart.ground + W / 2 - Math.floor(distance) < W;
+function groundZone() {    // which area has reached the point where obstacles appear?
+  if (!zoneStarts) return 0;
+  const g = Math.floor(distance) + W;
+  return zoneStarts.ground.filter(s => g >= s + W / 2).length;
 }
-function inZone(o) { return !o.zone || (o.zone === "port") === onQuay(); }
+function inZone(o) { return !o.zone || o.zone.includes(ZONES[groundZone()]); }
 function difficulty() { return Math.min(1, secs() / 50); }
 let pies = [], pieGap = 0, power = 0, pieFlash = 0;
 const POWER_FRAMES = 600;        // pie power lasts 10 seconds
@@ -314,7 +342,7 @@ function newRun() {
   pieGap = 700 + Math.random() * 500;
   runTime = 0;
   wind = [];
-  bonus = 0; popups = []; portStart = null; stomps = 0;
+  bonus = 0; popups = []; zoneStarts = null; stomps = 0;
   lives = LIVES; invuln = 0;
   take = nextTake();
   power = 0;
@@ -403,7 +431,7 @@ function update() {
   if (invuln > 0) invuln--;
   distance += speed;
   score = Math.floor(distance / 10) + bonus;
-  if (!portStart && secs() >= PORT_AT) startPort();
+  while (secs() >= ZONE_AT[zoneStarts ? zoneStarts.ground.length : 0]) startNextZone();
   for (const p of popups) { p.y -= 0.4; p.t--; }
   popups = popups.filter(p => p.t > 0);
 
@@ -492,18 +520,19 @@ function tileLayer(img, offset) {
   ctx.drawImage(img, W - o, 0);
 }
 
-// One scrolling layer of the world: countryside tiles, then the field-to-port piece, then port tiles.
-function worldLayer(country, trans, port, speed, start) {
+// One scrolling layer of the world, drawn tile by tile: each area's tiles, with the in-between
+// piece on the tile where the next area starts. `zones` are the area tiles, `trans` the pieces.
+function worldLayer(zones, trans, speed, starts) {
   const o = Math.floor(distance * speed);
-  if (start == null || start - o >= W) return tileLayer(country, o);
-  const b = start - o;                             // screen x where the field-to-port piece starts
-  if (b > 0) {
-    ctx.save(); ctx.beginPath(); ctx.rect(0, 0, b, H); ctx.clip();
-    tileLayer(country, o);
-    ctx.restore();
+  for (let k = Math.floor(o / W); k * W - o < W; k++) {
+    const x0 = k * W;
+    let img = zones[0];
+    for (let z = 0; z < starts.length; z++) {
+      if (x0 === starts[z]) { img = trans[z]; break; }
+      if (x0 > starts[z]) img = zones[z + 1];
+    }
+    ctx.drawImage(img, x0 - o, 0);
   }
-  if (b + W > 0) ctx.drawImage(trans, b, 0);
-  for (let x = b + W; x < W; x += W) if (x + W > 0) ctx.drawImage(port, x, 0);
 }
 
 function text(str, x, y, size, colour = "#fff", align = "center") {
@@ -775,10 +804,13 @@ function drawWorld() {
   // the small white plane crosses the sky every so often
   const px = (t * 0.35) % (W + 600) - 40;
   if (px < W + 10) ctx.drawImage(IMG.plane, Math.round(px), Math.round(38 + Math.sin(t / 40) * 2));
-  const ps = state === "title" ? null : portStart;
-  worldLayer(IMG["far_" + turbine], IMG["trans_far_" + turbine], IMG["port_far_" + turbine], LAYER_SPEED.far, ps && ps.far);
-  worldLayer(IMG["mid_" + turbine], IMG["trans_mid_" + turbine], IMG.port_mid, LAYER_SPEED.mid, ps && ps.mid);
-  worldLayer(IMG.ground, IMG.trans_ground, IMG.port_ground, LAYER_SPEED.ground, ps && ps.ground);
+  const zs = state === "title" || state === "settings" || !zoneStarts ? { far: [], mid: [], ground: [] } : zoneStarts;
+  worldLayer([IMG["far_" + turbine], IMG["port_far_" + turbine], IMG.canal_far],
+             [IMG["trans_far_" + turbine], IMG["trans2_far_" + turbine]], LAYER_SPEED.far, zs.far);
+  worldLayer([IMG["mid_" + turbine], IMG.port_mid, IMG.canal_mid],
+             [IMG["trans_mid_" + turbine], IMG.trans2_mid], LAYER_SPEED.mid, zs.mid);
+  worldLayer([IMG.ground, IMG.port_ground, IMG.canal_ground],
+             [IMG.trans_ground, IMG.trans2_ground], LAYER_SPEED.ground, zs.ground);
 
   for (const w of wind) {
     ctx.fillStyle = `rgba(255,255,255,${w.a.toFixed(3)})`;

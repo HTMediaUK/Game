@@ -22,7 +22,7 @@ obstacles.PALETTE.update({
     "e": "#a8dcf2", "E": "#5f93b8",                   # window glass
     "m": "#6a6f80", "M": "#4a4e5e",                   # roof slate / steel
     "t": "#9a6a40", "T": "#74492a",                   # timber boards
-    "u": "#e8a24a", "U": "#b8722e", "i": "#ffd98a",   # pie crust
+    "u": "#e8a24a", "U": "#b8722e", "i": "#ffd98a",   # pie crust (also the Highland cow's coat)
     "x": "#f06a5a", "y": "#d83a3a", "z": "#9c2430",   # superhero cape
 })
 
@@ -51,16 +51,34 @@ def hospital():
     return s.image()
 
 
-def field_cow():
-    """A small Friesian grazing in the fields (head down)."""
-    s = Sprite(14, 10)
-    s.rect(4, 2, 11, 5, "W"); s.rect(4, 5, 11, 5, "w")    # body
-    s.rect(6, 2, 7, 3, "k"); s.rect(10, 4, 11, 5, "k")    # patches
-    s.rect(1, 4, 3, 6, "k"); s.rect(1, 7, 2, 7, "p")      # head down, pink nose
-    s.put(3, 3, "k")                                      # ear
-    for x in (5, 10):
-        s.rect(x, 6, x, 7, "w"); s.put(x, 8, "k")         # legs and hooves
-    s.rect(12, 2, 12, 5, "k")                             # tail
+FIELD_BREEDS = {   # body, belly, patches, head
+    "friesian": ("W", "w", "k", "k"),
+    "hereford": ("B", "W", None, "W"),
+    "belted":   ("k", "K", None, "k"),
+    "jersey":   ("t", "T", None, "T"),
+    "highland": ("u", "U", None, "u"),
+}
+
+
+def field_cow(breed="friesian"):
+    """A small cow grazing in the fields (head down), in one of the UK breeds."""
+    body, belly, patch, head = FIELD_BREEDS[breed]
+    s = Sprite(16, 11)
+    s.rect(5, 3, 12, 6, body); s.rect(5, 6, 12, 6, belly)          # body
+    if patch:
+        s.rect(7, 3, 8, 4, patch); s.rect(11, 5, 12, 6, patch)      # Friesian patches
+    if breed == "belted":
+        s.rect(8, 3, 9, 6, "W")                                     # white belt
+    if breed == "highland":
+        for x in range(5, 13, 2):
+            s.put(x, 7, "U")                                        # shaggy fringe of hair
+        s.put(1, 3, "c"); s.put(0, 2, "c"); s.put(5, 3, "c"); s.put(6, 2, "c")   # horns
+    s.rect(2, 5, 4, 7, head); s.rect(2, 8, 3, 8, "p")              # head down, nose
+    s.put(4, 4, head)                                               # ear
+    for x in (6, 11):
+        s.rect(x, 7, x, 8, belly if breed == "friesian" else "U" if breed == "highland" else belly)
+        s.put(x, 9, "k")                                            # legs and hooves
+    s.rect(13, 3, 13, 6, patch or belly)                            # tail
     return s.image()
 
 

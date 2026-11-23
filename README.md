@@ -52,11 +52,13 @@ Every run gets harder with time, so nobody plays for much more than a minute:
 |---|---|
 | Start | Tripods, flight cases and sheep at a gentle pace |
 | 8 to 20 seconds | Cows, stacked cases and the roadworks barrier join in |
+| 8 seconds | Cows join in: Friesian, Hereford, Belted Galloway, Jersey and Highland |
 | 15 seconds | You run from the fields into a port: the quay arrives under your feet past a signpost, the hills slope into the sea, then the container ship, crane, tug and offshore wind farm come into view. Sheep and cows give way to mooring bollards and shipping containers |
 | 15 to 18 seconds | Low seagulls and drones: jump over them (drones bob up and down) |
 | 22 to 28 seconds | High seagulls and drones: don't jump, or just tap for a small hop underneath |
 | 25 seconds | Pairs of obstacles close together: one long, held jump clears both |
 | 40 seconds | No more pies |
+| 30 seconds | The port gives way to a Scottish canal: Highland hills with snow on the tops, canal boats, a stone humpback bridge, lock gates, a lock-keeper's cottage and a gravel towpath. Highland cows, sheep and bollards to jump |
 | 50 seconds | The speed keeps climbing until you crash |
 
 Faint wind streaks start rushing past as the speed picks up. Seagulls and drones glow so they're easy to spot.
@@ -139,6 +141,7 @@ The top 10 are saved in Chrome on that laptop, so they survive closing the game 
 | `index.html` | The whole game |
 | `sprites/ui/` | Pixel versions of the HT logo, used in the mockups (the game draws the logo smoothly in code) |
 | `sprites/src/port.py` | Draws the port: sea, wind farm, container ship, crane, tug and quayside |
+| `sprites/src/canal.py` | Draws the Scottish canal: Highland hills, canal, boats, bridge, lock, cottage and towpath |
 | `sprites/mockups/` | Ideas not in the game: Dan's 3D spin, three select screen designs |
 | `dist/HT-Dash.html` | The same game packed into one file to send to people |
 | `tools/build_single_file.py` | Rebuilds `dist/HT-Dash.html` |

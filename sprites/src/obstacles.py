@@ -28,6 +28,7 @@ PALETTE = {
     "c": "#efe3c4",                                   # horns
     "q": "#f2b632", "Q": "#c48a1e",                   # seagull beak
     "A": "#ffbe3b", "Z": "#8a5a20",                   # roadworks lamp lit / off
+    "u": "#c8702e", "U": "#8e4520", "i": "#e8a060",   # Highland cow's ginger coat
 }
 
 
@@ -168,6 +169,30 @@ def container():
     return s.image()
 
 
+def highland_cow(frame):
+    """Shaggy ginger Highland cow with long horns and a fringe over its eyes, facing Dan."""
+    s = Sprite(34, 25)
+    leg_x = [10, 14, 25, 29] if frame == 0 else [11, 13, 26, 28]
+    for x in leg_x:
+        s.rect(x, 18, x + 1, 23, "U")
+        s.rect(x, 23, x + 1, 23, "k")                       # hooves
+    s.blob(20, 11, 12, 7, "u")                              # shaggy body
+    for x in range(9, 32, 2):                               # long hair hanging down
+        s.rect(x, 14 + (x % 3), x, 18 + (x % 4), "U")
+    for x in range(11, 31, 4):
+        s.put(x, 6, "i")                                    # light catching the coat
+    s.rect(2, 7, 10, 16, "u")                               # head
+    s.rect(2, 6, 9, 9, "U")                                 # fringe over the eyes
+    for x in range(2, 10, 2):
+        s.put(x, 10, "U")
+    s.rect(1, 14, 6, 17, "p"); s.put(2, 16, "P"); s.put(5, 16, "P")   # nose
+    # long horns sweeping out sideways, then curving up, with dark tips
+    s.rect(0, 5, 3, 5, "c"); s.put(0, 4, "c"); s.put(0, 3, "k")
+    s.rect(9, 5, 13, 5, "c"); s.put(13, 4, "c"); s.put(13, 3, "k")
+    s.line(31, 7, 33, 16, "U")                              # tail
+    return s.image()
+
+
 def sheep(frame):
     s = Sprite(22, 17)
     # legs first (behind the wool); the pairs swap between frames
@@ -190,25 +215,40 @@ def sheep(frame):
     return s.image()
 
 
-def cow(frame):
+# UK cattle breeds: body, belly shade, patches, head, face, legs
+BREEDS = {
+    "friesian": {"x": "#ffffff", "X": "#e3e6ee", "y": "#26222c", "z": "#26222c", "Y": "#ffffff", "T": "#e3e6ee"},
+    "hereford": {"x": "#8e3a22", "X": "#f2efe6", "y": "#8e3a22", "z": "#f6f3ea", "Y": "#f6f3ea", "T": "#6e2c1a"},
+    "belted":   {"x": "#24202a", "X": "#18151c", "y": "#24202a", "z": "#24202a", "Y": "#24202a", "T": "#18151c"},
+    "jersey":   {"x": "#c89a5e", "X": "#a87a44", "y": "#c89a5e", "z": "#8e6a3e", "Y": "#b48650", "T": "#8e6a3e"},
+}
+
+
+def cow(frame, breed="friesian"):
+    """A cow facing Dan. Breeds: friesian (black and white), hereford (red with a
+    white face), belted (Belted Galloway: black with a white belt), jersey (fawn)."""
+    PALETTE.update(BREEDS[breed])
     s = Sprite(32, 24)
     leg_x = [9, 13, 23, 27] if frame == 0 else [10, 12, 24, 26]
     for x in leg_x:
-        s.rect(x, 16, x + 1, 21, "w")
+        s.rect(x, 16, x + 1, 21, "T")
         s.rect(x, 22, x + 1, 22, "k")                       # hooves
-    s.rect(9, 5, 29, 16, "W")                               # body
-    s.rect(9, 15, 29, 16, "w")                              # belly shade
-    s.blob(15, 8, 4, 3, "k"); s.blob(24, 12, 4, 3, "k"); s.blob(27, 6, 2.5, 2, "k")
+    s.rect(9, 5, 29, 16, "x")                               # body
+    s.rect(9, 15, 29, 16, "X")                              # belly
+    if breed == "friesian":
+        s.blob(15, 8, 4, 3, "y"); s.blob(24, 12, 4, 3, "y"); s.blob(27, 6, 2.5, 2, "y")
+    if breed == "belted":
+        s.rect(17, 5, 22, 16, "W")                          # the white belt
     s.rect(20, 17, 23, 17, "p"); s.put(21, 18, "P"); s.put(23, 18, "P")  # udder
-    s.line(30, 6, 31, 14, "k")                              # tail
+    s.line(30, 6, 31, 14, "y" if breed != "hereford" else "x")           # tail
     s.rect(30, 15, 31, 16, "K")
-    # head: black with a white blaze, pink muzzle, horns and ear
-    s.rect(1, 3, 8, 12, "k"); s.rect(1, 3, 4, 4, "K")
-    s.rect(3, 4, 4, 10, "W")                                # blaze
-    s.rect(0, 10, 5, 13, "p"); s.put(1, 12, "P"); s.put(4, 12, "P")
-    s.put(6, 6, "W")                                        # eye glint
+    s.rect(1, 3, 8, 12, "z"); s.rect(1, 3, 4, 4, "Y")       # head
+    if breed == "friesian":
+        s.rect(3, 4, 4, 10, "W")                            # white blaze
+    s.rect(0, 10, 5, 13, "p" if breed != "jersey" else "D"); s.put(1, 12, "P"); s.put(4, 12, "P")
+    s.put(6, 6, "W" if breed not in ("hereford",) else "k") # eye
     s.put(2, 2, "c"); s.put(6, 2, "c"); s.put(1, 1, "c"); s.put(7, 1, "c")
-    s.rect(8, 4, 9, 5, "K")                                 # ear
+    s.rect(8, 4, 9, 5, "y" if breed == "friesian" else "T")  # ear
     return s.image()
 
 
@@ -237,6 +277,10 @@ SPRITES = {
     "roadblock": [roadblock(0), roadblock(1)],
     "sheep": [sheep(0), sheep(1)],
     "cow": [cow(0), cow(1)],
+    "hereford": [cow(0, "hereford"), cow(1, "hereford")],
+    "belted": [cow(0, "belted"), cow(1, "belted")],
+    "jersey": [cow(0, "jersey"), cow(1, "jersey")],
+    "highland_cow": [highland_cow(0), highland_cow(1)],
     "seagull": [seagull(0), seagull(1)],
     "bollard": [bollard()],
     "container": [container()],
