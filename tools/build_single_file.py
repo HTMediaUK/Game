@@ -19,9 +19,16 @@ for png in sorted((root / "sprites").rglob("*.png")):
         continue
     embed[rel] = "data:image/png;base64," + base64.b64encode(png.read_bytes()).decode()
 
-# keep only images the game actually loads (static paths and the per-character frames)
-used = set(re.findall(r'"(sprites/[^"]+\.png)"', html))
-used |= {p for p in embed if p.startswith(("sprites/characters/", "sprites/backdrop/hills_"))}
+# keep only images the game actually loads: full paths like "sprites/obstacles/cow_0.png",
+# and numbered ones written as templates like `sprites/backdrop/port_far_${i}.png`
+used = set(re.findall(r'"(sprites/[^"$]+\.png)"', html))
+patterns = []
+for tpl in re.findall(r'`(sprites/[^`]+\.png)`', html):
+    patterns.append(re.compile("^" + re.sub(r"\\\$\\\{[^}]*\\\}", ".+", re.escape(tpl)) + "$"))
+used |= {p for p in embed if any(rx.match(p) for rx in patterns)}
+used.discard("sprites/ui/app_icon.png")     # home-screen icon: only needed when hosted
+missing = sorted(p for p in used if p not in embed)
+assert not missing, f"images the game loads but the build can't find: {missing}"
 embed = {k: v for k, v in embed.items() if k in used}
 
 data = "window.EMBED = {\n" + ",\n".join(f'  "{k}": "{v}"' for k, v in embed.items()) + "\n};"

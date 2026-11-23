@@ -2,17 +2,31 @@
 <html lang="en-GB">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>HT Dash</title>
+<meta name="theme-color" content="#0e0c12">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="HT Dash">
+<link rel="apple-touch-icon" href="sprites/ui/app_icon.png">
+<link rel="icon" href="sprites/ui/app_icon.png">
+<link rel="manifest" href="manifest.webmanifest">
 <style>
   :root { --bg: #0e0c12; }
   html, body { margin: 0; height: 100%; background: var(--bg); overflow: hidden; }
   body { display: grid; place-items: center; }
-  canvas { display: block; image-rendering: pixelated; image-rendering: crisp-edges; cursor: none; outline: none; }
+  canvas { display: block; image-rendering: pixelated; image-rendering: crisp-edges; cursor: none; outline: none;
+           touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+  body { -webkit-tap-highlight-color: transparent; }
+  /* an invisible text box laid over the name and email boxes, so iPads show their keyboard */
+  #typer { position: fixed; opacity: 0.01; border: 0; padding: 0; margin: 0; background: transparent;
+           color: transparent; caret-color: transparent; font-size: 16px; display: none; }
 </style>
 </head>
 <body>
-<canvas id="game" tabindex="0" aria-label="HT Dash: press space to jump"></canvas>
+<canvas id="game" tabindex="0" aria-label="HT Dash: press space or tap to jump"></canvas>
+<input id="typer" type="text" autocomplete="off" autocorrect="off" spellcheck="false" aria-label="Type here">
 <script>
 "use strict";
 // ---------------------------------------------------------------------------
@@ -22,7 +36,9 @@
 //   Space               start, and jump (tap for a hop, hold for a big jump)
 //   Enter               save your name at the end of a run
 //   F                   full screen
-//   Ctrl+Alt+R          clear the high score table (asks first)
+//   Ctrl+Alt+S          settings (title screen): save location, download entries, reset high scores
+//   Ctrl+Alt+E          download every entry (name, work email, score) as a CSV
+//   Ctrl+Alt+B          choose (or reconnect) the Notepad backup file, rewritten after every entry
 // Collect a pie to jump twice as high for 10 seconds (and bounce off things you land on).
 // High scores are saved in this browser on this laptop (localStorage).
 // ---------------------------------------------------------------------------
@@ -37,9 +53,13 @@ const ctx = canvas.getContext("2d");
 let S = 1;                               // integer scale from 320x180 to the screen
 
 function resize() {
-  S = Math.max(1, Math.floor(Math.min(innerWidth / W, innerHeight / H)));
+  // draw at a whole-number scale (crisp pixels), then stretch to fill the screen exactly
+  const fit = Math.min(innerWidth / W, innerHeight / H);
+  S = Math.max(1, Math.ceil(fit));
   canvas.width = W * S;
   canvas.height = H * S;
+  canvas.style.width = Math.floor(W * fit) + "px";
+  canvas.style.height = Math.floor(H * fit) + "px";
 }
 addEventListener("resize", resize);
 resize();
@@ -59,6 +79,24 @@ const ASSETS = {
   sheep_1: "sprites/obstacles/sheep_1.png",
   cow_0: "sprites/obstacles/cow_0.png",
   cow_1: "sprites/obstacles/cow_1.png",
+  hereford_0: "sprites/obstacles/hereford_0.png",
+  hereford_1: "sprites/obstacles/hereford_1.png",
+  belted_0: "sprites/obstacles/belted_0.png",
+  belted_1: "sprites/obstacles/belted_1.png",
+  jersey_0: "sprites/obstacles/jersey_0.png",
+  jersey_1: "sprites/obstacles/jersey_1.png",
+  bollard: "sprites/obstacles/bollard.png",
+  container: "sprites/obstacles/container.png",
+  port_mid: "sprites/backdrop/port_mid.png",
+  port_ground: "sprites/backdrop/port_ground.png",
+  trans_ground: "sprites/backdrop/trans_ground.png",
+  canal_far: "sprites/backdrop/canal_far.png",
+  canal_mid: "sprites/backdrop/canal_mid.png",
+  canal_ground: "sprites/backdrop/canal_ground.png",
+  trans2_mid: "sprites/backdrop/trans2_mid.png",
+  trans2_ground: "sprites/backdrop/trans2_ground.png",
+  highland_cow_0: "sprites/obstacles/highland_cow_0.png",
+  highland_cow_1: "sprites/obstacles/highland_cow_1.png",
   pie: "sprites/landmarks/pie.png",
   seagull_0: "sprites/obstacles/seagull_0.png",
   seagull_1: "sprites/obstacles/seagull_1.png",
@@ -72,13 +110,21 @@ const ASSETS = {
 };
 // The HT team. Dan is the default runner; the arrow keys on the title screen pick someone else.
 const CHARS = [
-  { id: "dan",   name: "DAN",   role: "Managing Director" },
-  { id: "mark",  name: "MARK",  role: "Creative Director" },
-  { id: "beth",  name: "BETH",  role: "Operations & Creative Coordinator" },
-  { id: "sam",   name: "SAM",   role: "Editor" },
-  { id: "jonas", name: "JONAS", role: "Creative Producer" },
+  // each runner has their own colour from the HT logo ring
+  // game stats (made up, out of 5, each pair adds to 6): speed = how fast the world moves,
+  // jump = how high they go
+  { id: "dan",   name: "DAN",   role: "Managing Director",                 colour: "#d97e30", speed: 3, jump: 3 },
+  { id: "dave",  name: "DAVE",  role: "Production Director",               colour: "#66bfad", speed: 2, jump: 4 },
+  { id: "mark",  name: "MARK",  role: "Creative Director",                 colour: "#9dbc3e", speed: 4, jump: 2 },
+  { id: "beth",  name: "BETH",  role: "Operations & Creative Coordinator", colour: "#b85895", speed: 3, jump: 3 },
+  { id: "sam",   name: "SAM",   role: "Editor",                            colour: "#138aa8", speed: 1, jump: 5 },
+  { id: "jonas", name: "JONAS", role: "Creative Producer",                 colour: "#e1a22e", speed: 3, jump: 3 },
 ];
 let sel = 0;                      // which runner is chosen
+const speedMul = () => 1 + (who().speed - 3) * 0.06;   // 0.88 to 1.12
+const jumpMul = () => 1 + (who().jump - 3) * 0.04;     // take-off speed; height changes about 0.85 to 1.17
+const LIVES = 3;                  // crashes allowed per run
+let lives = LIVES, invuln = 0;    // invuln: frames of flashing, can't-be-hit time after losing a life
 const who = () => CHARS[sel];
 const RUN_FRAMES = 6;
 for (const c of CHARS) {
@@ -89,6 +135,10 @@ for (const c of CHARS) {
 for (let i = 0; i < 4; i++) {
   ASSETS["far_" + i] = `sprites/backdrop/hills_far_${i}.png`;
   ASSETS["mid_" + i] = `sprites/backdrop/hills_mid_${i}.png`;
+  ASSETS["port_far_" + i] = `sprites/backdrop/port_far_${i}.png`;
+  ASSETS["trans_far_" + i] = `sprites/backdrop/trans_far_${i}.png`;   // field-to-port pieces
+  ASSETS["trans_mid_" + i] = `sprites/backdrop/trans_mid_${i}.png`;
+  ASSETS["trans2_far_" + i] = `sprites/backdrop/trans2_far_${i}.png`;   // port-to-canal pieces
 }
 function loadAll() {
   return Promise.all(Object.entries(ASSETS).map(([k, src]) => new Promise((ok, fail) => {
@@ -103,9 +153,19 @@ function loadAll() {
 const OBSTACLES = [
   { name: "tripod",               frames: ["tripod"],               weight: 3, from: 0 },
   { name: "flight_case",          frames: ["flight_case"],          weight: 3, from: 0 },
-  { name: "sheep",                frames: ["sheep_0", "sheep_1"],   weight: 3, from: 0,   walk: 0.4 },
+  { name: "sheep",                frames: ["sheep_0", "sheep_1"],   weight: 3, from: 0,   walk: 0.4, zone: ["country", "canal"] },
   { name: "flight_cases_stacked", frames: ["flight_cases_stacked"], weight: 2, from: 10 },
-  { name: "cow",                  frames: ["cow_0", "cow_1"],       weight: 2, from: 8, walk: 0.25 },
+  // a herd of UK breeds in the countryside, each turning up now and then
+  { name: "cow",                  frames: ["cow_0", "cow_1"],             weight: 0.6, from: 8, walk: 0.25, zone: ["country"] },
+  { name: "hereford",             frames: ["hereford_0", "hereford_1"],   weight: 0.4, from: 8, walk: 0.25, zone: ["country"] },
+  { name: "belted",               frames: ["belted_0", "belted_1"],       weight: 0.4, from: 8, walk: 0.25, zone: ["country"] },
+  { name: "jersey",               frames: ["jersey_0", "jersey_1"],       weight: 0.4, from: 8, walk: 0.25, zone: ["country"] },
+  { name: "highland_field",       frames: ["highland_cow_0", "highland_cow_1"], weight: 0.6, from: 8, walk: 0.25, zone: ["country"] },
+  // on the quayside (after 15 seconds)
+  { name: "bollard",              frames: ["bollard"],              weight: 3, from: 15, zone: ["port", "canal"] },
+  { name: "container",            frames: ["container"],            weight: 2, from: 17, zone: ["port"] },
+  // on the canal towpath (after 30 seconds)
+  { name: "highland_cow",         frames: ["highland_cow_0", "highland_cow_1"], weight: 3, from: 30, walk: 0.25, zone: ["canal"] },
   { name: "roadblock",            frames: ["roadblock_0", "roadblock_1"], weight: 2, from: 20, blink: 24 },
   // seagulls fly towards Dan: low ones at chest height (jump over them),
   // high ones at jump height (don't jump, or just tap for a small hop)
@@ -132,26 +192,160 @@ function saveScore(name, score, runner) {
   try { localStorage.setItem(STORE_KEY, JSON.stringify(top)); } catch { /* storage blocked */ }
   return top.indexOf(entry);   // -1 if it didn't make the table
 }
+// Every entry (name, work email, score, runner, time) is kept here, on this laptop,
+// separate from the top-10 table. It survives refreshing, closing Chrome and restarting.
+const SUB_KEY = "ht-dash-submissions";
+function loadSubmissions() {
+  try {
+    const list = JSON.parse(localStorage.getItem(SUB_KEY) || "[]");
+    return Array.isArray(list) ? list : [];
+  } catch { return []; }
+}
+function saveSubmission(entry) {
+  const list = loadSubmissions();
+  list.push({ ...entry, at: new Date().toISOString() });
+  try { localStorage.setItem(SUB_KEY, JSON.stringify(list)); } catch { /* storage blocked */ }
+}
+// ---- Notepad backup: a .txt file, chosen once, rewritten with every entry after each new one.
+// Browsers only write to a file the person has picked, so staff press Ctrl+Alt+B to choose it.
+// The choice is remembered (IndexedDB); after a refresh Chrome may need Ctrl+Alt+B once to allow it again.
+let backupHandle = null, backupState = "off", backupAt = null;   // off | on | reconnect | unsupported | error
+const BACKUP_DB = "ht-dash-backup";
+function backupDb() {
+  return new Promise((ok, fail) => {
+    const req = indexedDB.open(BACKUP_DB, 1);
+    req.onupgradeneeded = () => req.result.createObjectStore("handles");
+    req.onsuccess = () => ok(req.result);
+    req.onerror = () => fail(req.error);
+  });
+}
+async function rememberHandle(h) {
+  try {
+    const db = await backupDb();
+    db.transaction("handles", "readwrite").objectStore("handles").put(h, "notepad");
+  } catch { /* the backup still works this session */ }
+}
+async function recallHandle() {
+  try {
+    const db = await backupDb();
+    return await new Promise(ok => {
+      const r = db.transaction("handles").objectStore("handles").get("notepad");
+      r.onsuccess = () => ok(r.result || null);
+      r.onerror = () => ok(null);
+    });
+  } catch { return null; }
+}
+function notepadText() {
+  const lines = ["HT Dash entries", "Date        Time   | Name | Work email | Score", ""];
+  for (const s of loadSubmissions()) {
+    const d = new Date(s.at);
+    lines.push(`${d.toLocaleDateString("en-GB")}  ${d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}  |  ${s.name}  |  ${s.email}  |  ${s.score}`);
+  }
+  return lines.join("\r\n") + "\r\n";
+}
+async function writeBackup() {
+  if (!backupHandle) return;
+  try {
+    if (backupHandle.queryPermission && (await backupHandle.queryPermission({ mode: "readwrite" })) !== "granted") {
+      backupState = "reconnect";
+      return;
+    }
+    const w = await backupHandle.createWritable();
+    await w.write(notepadText());
+    await w.close();
+    backupState = "on";
+    backupAt = new Date();
+  } catch {
+    backupState = "error";
+  }
+}
+async function connectBackup() {                     // Ctrl+Alt+B (needs the key press to ask)
+  try {
+    if (backupHandle && backupState === "reconnect" && backupHandle.requestPermission) {
+      if ((await backupHandle.requestPermission({ mode: "readwrite" })) === "granted") return writeBackup();
+    }
+    if (!window.showSaveFilePicker) { backupState = "unsupported"; return; }
+    backupHandle = await window.showSaveFilePicker({
+      suggestedName: "HT-Dash-entries.txt",
+      types: [{ description: "Notepad text", accept: { "text/plain": [".txt"] } }],
+    });
+    await rememberHandle(backupHandle);
+    await writeBackup();
+  } catch { /* cancelled */ }
+}
+async function restoreBackup() {                     // on load: pick up last session's file if allowed
+  if (!window.showSaveFilePicker) { backupState = "unsupported"; return; }   // iPad, Safari, Firefox
+  backupHandle = await recallHandle();
+  if (!backupHandle) return;
+  try {
+    const perm = backupHandle.queryPermission ? await backupHandle.queryPermission({ mode: "readwrite" }) : "granted";
+    backupState = perm === "granted" ? "on" : "reconnect";
+  } catch { backupState = "reconnect"; }
+}
+
+function exportSubmissions() {
+  const rows = [["Name", "Work email", "Score", "Runner", "Date", "Time"]];
+  for (const s of loadSubmissions()) {
+    const d = new Date(s.at);
+    rows.push([s.name, s.email, s.score, s.runner,
+      d.toLocaleDateString("en-GB"), d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })]);
+  }
+  const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\r\n");
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob(["\ufeff" + csv], { type: "text/csv" }));
+  a.download = `ht-dash-entries-${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(a); a.click(); a.remove();
+}
+
 function bestScore() {
   const list = loadScores();
   return list.length ? list[0].score : 0;
 }
 
 // ----------------------------------------------------------------- game state
-let state = "title";            // title | play | crash | name | board
+let state = "title";            // title | play | crash | name | board | settings
 let t = 0;                      // frames since the page started
 let speed, distance, score, obstacles, nextGap, dan, crashAt, nameText, nameSince, boardRank, boardSince;
+let emailText = "", field = "name", emailError = false;   // end card: name, then work email
+const MAX_EMAIL = 48;
+const EMAIL_OK = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 let jumpHeld = false;
 let runClock = 0, landTimer = 0;   // run animation and the squash after landing
 let bufferedAt = -99;              // Space pressed just before landing still counts
 let runTime = 0;                   // frames since this run started (60 a second)
 let wind = [];                     // faint streaks that rush past once the run speeds up
+let bonus = 0, popups = [];        // +5 for landing on top of an obstacle, and the floating "+5"
+let stomps = 0;                    // each +5 takes the next HT colour
+// the brighter HT logo colours, in ring order (the darkest ones get lost against the sky)
+const STOMP_COLOURS = ["#c49782", "#66bfad", "#d97e30", "#c45b66", "#9dbc3e", "#e1a22e",
+  "#47984a", "#e5c41f", "#b85895", "#138aa8", "#8883b5", "#b2383e"];
+let zoneStarts = null;             // per layer: where (in its own scroll) each next area's piece begins
 let take = 1;                      // today's take number, shown on the high score slate
 
 // Difficulty rises with time, not distance, so every run is over in about a minute:
 //   0-15s gentle, ground only | 15s seagulls | 25s close pairs, fewer pies
 //   40s no more pies | 50s+ speed keeps climbing past what people can react to
 function secs() { return runTime / 60; }
+// The world runs through three areas: countryside, then a port at 15 seconds, then a Scottish
+// canal at 30. Each new area arrives as part of the world: its in-between piece is lined up just
+// off the right edge on each layer's own tile boundary, so it scrolls in at that layer's speed.
+const ZONES = ["country", "port", "canal"];
+const ZONE_AT = [15, 30];
+const LAYER_SPEED = { far: 0.1, mid: 0.3, ground: 1 };
+function startNextZone() {
+  if (!zoneStarts) zoneStarts = { far: [], mid: [], ground: [] };
+  for (const [name, f] of Object.entries(LAYER_SPEED)) {
+    const list = zoneStarts[name];
+    const at = Math.ceil((Math.floor(distance * f) + W) / W) * W;
+    list.push(list.length ? Math.max(at, list[list.length - 1] + W) : at);   // at least one tile of each area
+  }
+}
+function groundZone() {    // which area has reached the point where obstacles appear?
+  if (!zoneStarts) return 0;
+  const g = Math.floor(distance) + W;
+  return zoneStarts.ground.filter(s => g >= s + W / 2).length;
+}
+function inZone(o) { return !o.zone || o.zone.includes(ZONES[groundZone()]); }
 function difficulty() { return Math.min(1, secs() / 50); }
 let pies = [], pieGap = 0, power = 0, pieFlash = 0;
 const POWER_FRAMES = 600;        // pie power lasts 10 seconds
@@ -167,6 +361,8 @@ function newRun() {
   pieGap = 700 + Math.random() * 500;
   runTime = 0;
   wind = [];
+  bonus = 0; popups = []; zoneStarts = null; stomps = 0;
+  lives = LIVES; invuln = 0;
   take = nextTake();
   power = 0;
   pieFlash = 0;
@@ -175,13 +371,13 @@ function newRun() {
 
 function jump() {
   if (dan.onGround) {
-    dan.vy = power > 0 ? -7.5 : -5.3;   // pie power: twice as high
+    dan.vy = (power > 0 ? -7.5 : -5.3) * jumpMul();   // pie power: twice as high; jump stat on top
     dan.onGround = false;
   }
 }
 
 function spawn() {
-  const pool = OBSTACLES.filter(o => secs() >= o.from);
+  const pool = OBSTACLES.filter(o => secs() >= o.from && inZone(o));
   let r = Math.random() * pool.reduce((s, o) => s + o.weight, 0);
   let kind = pool.find(o => (r -= o.weight) < 0) || pool[0];
   // a high seagull never arrives on top of a ground obstacle: you couldn't hop under it and over that
@@ -197,7 +393,7 @@ function spawn() {
   // from 25 seconds, sometimes a second ground obstacle follows close behind:
   // clear both with one long, held jump
   if (secs() > 25 && !kind.air && Math.random() < 0.15 + 0.25 * difficulty()) {
-    const twin = OBSTACLES.filter(o => !o.air && o.name !== "roadblock" && secs() >= o.from);
+    const twin = OBSTACLES.filter(o => !o.air && o.name !== "roadblock" && secs() >= o.from && inZone(o));
     const k2 = twin[Math.floor(Math.random() * twin.length)];
     const im2 = IMG[k2.frames[0]];
     obstacles.push({ kind: k2, x: W + 4 + im.width + 18 + speed * 4, y: GROUND_Y - im2.height + 1, w: im2.width, h: im2.height });
@@ -237,21 +433,26 @@ function update() {
     distance = (distance || 0) + 1.5;   // backdrop keeps scrolling behind the menus
   }
   if (state === "board" && performance.now() - boardSince > 15000) { state = "title"; sel = 0; }
-  if (state === "name" && performance.now() - nameSince > NAME_TIMEOUT_MS) { state = "title"; sel = 0; obstacles = []; }
+  if (state === "name" && performance.now() - nameSince > NAME_TIMEOUT_MS) { state = "title"; sel = 0; obstacles = []; hideTyper(); }
   if (state === "crash" && performance.now() - crashAt > 900) {
     state = "name";
     obstacles = [];
     wind = [];
     nameText = "";
+    emailText = ""; field = "name"; emailError = false;
     nameSince = performance.now();
   }
   if (state !== "play") return;
 
   runTime++;
   // speed: 2.6 at the start, about 7 at 50 seconds, then it keeps on climbing
-  speed = 2.6 + 4.4 * Math.pow(difficulty(), 1.3) + Math.max(0, secs() - 50) * 0.12;
+  speed = (2.6 + 4.4 * Math.pow(difficulty(), 1.3) + Math.max(0, secs() - 50) * 0.12) * speedMul();
+  if (invuln > 0) invuln--;
   distance += speed;
-  score = Math.floor(distance / 10);
+  score = Math.floor(distance / 10) + bonus;
+  while (secs() >= ZONE_AT[zoneStarts ? zoneStarts.ground.length : 0]) startNextZone();
+  for (const p of popups) { p.y -= 0.4; p.t--; }
+  popups = popups.filter(p => p.t > 0);
 
   // Jump easing: float up while Space is held (let go early for a short hop),
   // hang for a moment at the top, then fall a little quicker than the rise.
@@ -304,12 +505,25 @@ function update() {
   obstacles = obstacles.filter(o => o.x + o.w > -4);
 
   for (const o of obstacles) {
-    if (!hit(o)) continue;
-    // with pie power, coming down on top of something bounces Dan off it
+    if (o.hurt || !hit(o)) continue;
+    // coming down on top of something: bounce off it and score 5 (once per obstacle)
     const feetBefore = dan.y + 29 - dan.vy;
-    if (power > 0 && dan.vy > 0 && feetBefore <= o.y + 6) {
+    if (dan.vy > 0 && feetBefore <= o.y + 6) {
       dan.y = o.y - 30;
       dan.vy = -4.2;
+      if (!o.stomped) {
+        o.stomped = true;
+        bonus += 5;
+        popups.push({ x: o.x + o.w / 2, y: o.y - 4, t: 45, colour: STOMP_COLOURS[stomps++ % STOMP_COLOURS.length] });
+      }
+      continue;
+    }
+    if (invuln > 0) continue;                       // just lost a life: flashing, can't be hit
+    lives--;
+    o.hurt = true;                                  // run straight through the thing you hit
+    if (lives > 0) {
+      invuln = 90;                                  // 1.5 seconds to recover
+      popups.push({ x: dan.x + 16, y: dan.y - 4, t: 50, label: "-1", colour: "#ff6b6b" });
       continue;
     }
     state = "crash";
@@ -325,6 +539,21 @@ function tileLayer(img, offset) {
   ctx.drawImage(img, W - o, 0);
 }
 
+// One scrolling layer of the world, drawn tile by tile: each area's tiles, with the in-between
+// piece on the tile where the next area starts. `zones` are the area tiles, `trans` the pieces.
+function worldLayer(zones, trans, speed, starts) {
+  const o = Math.floor(distance * speed);
+  for (let k = Math.floor(o / W); k * W - o < W; k++) {
+    const x0 = k * W;
+    let img = zones[0];
+    for (let z = 0; z < starts.length; z++) {
+      if (x0 === starts[z]) { img = trans[z]; break; }
+      if (x0 > starts[z]) img = zones[z + 1];
+    }
+    ctx.drawImage(img, x0 - o, 0);
+  }
+}
+
 function text(str, x, y, size, colour = "#fff", align = "center") {
   ctx.font = `bold ${size}px ui-monospace, "Cascadia Mono", Consolas, "Courier New", monospace`;
   ctx.textAlign = align;
@@ -335,74 +564,109 @@ function text(str, x, y, size, colour = "#fff", align = "center") {
   ctx.fillText(str, x, y);
 }
 
+const HT_COLOURS = ["#765443", "#c49782", "#657da0", "#566f41", "#8883b5", "#66bfad",
+  "#d97e30", "#4f5ba9", "#c45b66", "#603b6a", "#9dbc3e", "#e1a22e",
+  "#383d97", "#47984a", "#b2383e", "#e5c41f", "#b85895", "#138aa8"];   // clockwise round the logo
+
 function panel(x, y, w, h) {
   ctx.fillStyle = "rgba(18,14,23,0.82)";
   ctx.fillRect(x, y, w, h);
-  ctx.strokeStyle = "#f29a4a";
-  ctx.lineWidth = 1;
-  ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+  ringBorder(x, y, w, h);
 }
 
-// A golden silhouette of a Dan frame, used for the pie-power glow (made once per frame image).
+// A border made of the HT logo's colour segments, running round the panel.
+function ringBorder(x, y, w, h) {
+  let i = 0;
+  const seg = (sx, sy, sw, sh) => { ctx.fillStyle = HT_COLOURS[i++ % 18]; ctx.fillRect(sx, sy, sw, sh); };
+  for (let px = x; px < x + w; px += 7) seg(px, y, Math.min(6, x + w - px), 2);
+  for (let py = y + 2; py < y + h; py += 7) seg(x + w - 2, py, 2, Math.min(6, y + h - py));
+  for (let px = x + w - 2; px > x; px -= 7) seg(Math.max(x, px - 6), y + h - 2, Math.min(6, px - x), 2);
+  for (let py = y + h - 2; py > y + 2; py -= 7) seg(x, Math.max(y + 2, py - 6), 2, Math.min(6, py - y - 2));
+}
+
+// The HT logo, drawn smoothly (not pixelated): coloured ring, grey ring, "ht" in the middle.
+function drawHTLogo(cx, cy, R, withText = true) {
+  const sector = (r0, r1, a0, a1, colour) => {
+    ctx.beginPath();
+    ctx.arc(cx, cy, r1, a0, a1);
+    ctx.arc(cx, cy, r0, a1, a0, true);
+    ctx.closePath();
+    ctx.fillStyle = colour;
+    ctx.fill();
+  };
+  ctx.beginPath(); ctx.arc(cx, cy, R + 0.6, 0, Math.PI * 2);
+  ctx.fillStyle = "rgba(255,255,255,0.9)"; ctx.fill();
+  for (let k = 0; k < 36; k++) {
+    const a0 = (-90 + k * 10 + 0.9) * Math.PI / 180, a1 = (-90 + k * 10 + 9.1) * Math.PI / 180;
+    sector(R * 0.8, R, a0, a1, HT_COLOURS[(k >> 1) % 18]);
+    const inner = k < 18 ? ["#5b5b5d", "#77777a"][k % 2] : ["#cfd0d2", "#e6e7e8"][k % 2];
+    sector(R * 0.6, R * 0.74, a0 + 0.02, a1 - 0.02, inner);
+  }
+  ctx.beginPath(); ctx.arc(cx, cy, R * 0.56, 0, Math.PI * 2);
+  ctx.fillStyle = "#16141a"; ctx.fill();
+  if (!withText) return;
+  ctx.font = `bold ${R * 0.62}px "Segoe UI", "Helvetica Neue", Arial, sans-serif`;
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.fillStyle = "#fff";
+  ctx.fillText("ht", cx, cy + R * 0.02);
+}
+
+// Pie power timer as a mini HT ring: segments switch off as the power runs out.
+function drawRingTimer(cx, cy, R, frac) {
+  const lit = Math.ceil(36 * frac);
+  for (let k = 0; k < 36; k++) {
+    ctx.beginPath();
+    ctx.arc(cx, cy, R, (-90 + k * 10 + 1.2) * Math.PI / 180, (-90 + k * 10 + 8.8) * Math.PI / 180);
+    ctx.strokeStyle = k < lit ? HT_COLOURS[(k >> 1) % 18] : "rgba(255,255,255,0.18)";
+    ctx.lineWidth = 3;
+    ctx.stroke();
+  }
+}
+
+// A coloured silhouette of a sprite, used for glows (made once per image and colour).
 const glowCache = new Map();
-function glowOf(img) {
-  if (!glowCache.has(img)) {
+function glowOf(img, colour = "#ffd98a") {
+  const key = img.src + colour;
+  if (!glowCache.has(key)) {
     const c = document.createElement("canvas");
     c.width = img.width; c.height = img.height;
     const g = c.getContext("2d");
     g.drawImage(img, 0, 0);
     g.globalCompositeOperation = "source-in";
-    g.fillStyle = "#ffd98a";
+    g.fillStyle = colour;
     g.fillRect(0, 0, c.width, c.height);
-    glowCache.set(img, c);
+    glowCache.set(key, c);
   }
-  return glowCache.get(img);
+  return glowCache.get(key);
 }
 
-// Title screen: the whole team stands on the grass; the chosen runner jogs on the spot and glows.
-function drawLineup() {
-  CHARS.forEach((c, i) => {
-    const x = 20 + i * 60, y = GROUND_Y - 30, cx = x + 16;
-    const chosen = i === sel;
-    if (chosen) {
-      // soft spotlight beam and a pool of light at their feet
-      ctx.fillStyle = "rgba(255,226,150,0.16)";
-      ctx.beginPath();
-      ctx.moveTo(cx - 5, 96); ctx.lineTo(cx + 5, 96);
-      ctx.lineTo(cx + 24, GROUND_Y); ctx.lineTo(cx - 24, GROUND_Y);
-      ctx.closePath(); ctx.fill();
-      ctx.fillStyle = "rgba(255,217,138,0.45)";
-      ctx.beginPath(); ctx.ellipse(cx, GROUND_Y, 18, 3, 0, 0, Math.PI * 2); ctx.fill();
-    }
-    // chosen runner jogs on the spot; everyone else breathes, each a little out of step
-    const img = chosen ? IMG[c.id + "_run_" + Math.floor(t / 5) % RUN_FRAMES]
-                       : IMG[c.id + (Math.floor((t + i * 23) / 32) % 2 ? "_land" : "_stand")];
-    if (chosen) {
-      for (const [ring, alpha] of [[2, 0.3], [1, 0.75]]) {   // stronger, two-step glow
-        ctx.globalAlpha = alpha * (0.8 + 0.2 * Math.sin(t / 8));
-        const glow = glowOf(img);
-        for (const [gx, gy] of [[-ring, 0], [ring, 0], [0, -ring], [0, ring]]) ctx.drawImage(glow, x + gx, y + gy);
-      }
-      ctx.globalAlpha = 1;
-      const bounce = Math.round(Math.sin(t / 6) * 2);       // bigger arrow, bobbing over their head
-      ctx.fillStyle = "#f29a4a";
-      for (let k = 0; k < 6; k++) ctx.fillRect(cx - 6 + k, y - 13 + k + bounce, 12 - 2 * k, 1);
-    }
-    ctx.drawImage(img, x, y);
-    // name and role on a little plate under each person
-    ctx.fillStyle = chosen ? "rgba(18,14,23,0.85)" : "rgba(18,14,23,0.6)";
-    ctx.fillRect(cx - 28, 151, 56, 28);
-    if (chosen) {                                         // orange border all the way round
-      ctx.strokeStyle = "#f29a4a"; ctx.lineWidth = 1;
-      ctx.strokeRect(cx - 27.5, 151.5, 55, 27);
-    }
-    text(c.name, cx, 157, 7, chosen ? "#f29a4a" : "#fff");
-    wrap(c.role, 13).forEach((line, j) => text(line, cx, 165 + j * 5, 4.5, "#ffe2b0"));
-  });
+// Title screen: title and the chosen runner on the left, the HT wheel on the right.
+// Left/Right turn the wheel; the chosen runner jogs in the middle of it.
+let ringShown = 0;                                        // the wheel's current turn, easing towards the choice
+
+function textSans(str, x, y, size, colour = "#fff", align = "left") {
+  ctx.font = `800 ${size}px "Segoe UI", "Helvetica Neue", Arial, sans-serif`;
+  ctx.textAlign = align;
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = "rgba(14,12,20,0.6)";
+  ctx.fillText(str, x + 0.6, y + 0.8);
+  ctx.fillStyle = colour;
+  ctx.fillText(str, x, y);
 }
 
-// Split a role into short lines so it fits under a character.
-function wrap(str, max) {
+function keycap(x, y, w, label) {                         // a small key drawn like a keyboard key
+  ctx.fillStyle = "rgba(255,255,255,0.14)";
+  ctx.fillRect(x, y, w, 11);
+  ctx.fillStyle = "rgba(255,255,255,0.35)";
+  ctx.fillRect(x, y + 10, w, 1);
+  if (label === "<" || label === ">") {
+    const cx = x + w / 2, cy = y + 5.5, d = label === "<" ? -1 : 1;
+    ctx.beginPath(); ctx.moveTo(cx + 2 * d, cy); ctx.lineTo(cx - 1.5 * d, cy - 2.5); ctx.lineTo(cx - 1.5 * d, cy + 2.5);
+    ctx.closePath(); ctx.fillStyle = "#fff"; ctx.fill();
+  } else text(label, x + w / 2, y + 5.5, 5, "#fff");
+}
+
+function wrapLines(str, max) {
   const lines = [];
   for (const word of str.split(" ")) {
     const last = lines[lines.length - 1];
@@ -412,6 +676,162 @@ function wrap(str, max) {
   return lines;
 }
 
+// Idle "breathing": mostly standing, dipping for a moment every second or so.
+function idleFrame(id, phase) {
+  return IMG[id + ((t + phase) % 64 < 40 ? "_stand" : "_land")];
+}
+
+function entryCount() {
+  const count = loadSubmissions().length;
+  return `${count} ${count === 1 ? "entry" : "entries"}`;
+}
+
+function backupStatus() {
+  const n = entryCount();
+  const at = backupAt ? backupAt.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }) : "";
+  return {
+    on: [`Notepad backup on · ${n}${at ? " · saved " + at : ""}`, "#7fd18b"],
+    reconnect: ["Notepad backup paused · choose it again to allow", "#ffb84d"],
+    off: [`Notepad backup off · ${n}`, "#ffb84d"],
+    unsupported: [`Notepad backup needs Chrome or Edge on a computer · ${n} saved here, export from settings`, "#ffb84d"],
+    error: ["Notepad backup failed · choose the file again", "#ff8a8a"],
+  }[backupState];
+}
+
+// ---- Settings (staff only): Ctrl+Alt+S on the title screen. Up/Down move, Enter selects, Esc closes.
+let settingsSel = 0, confirmReset = false, settingsMsg = "", settingsMsgAt = 0;
+function settingsNote(msg) { settingsMsg = msg; settingsMsgAt = performance.now(); }
+const SETTINGS = [
+  { label: () => `Save location: ${backupHandle ? backupHandle.name : "not chosen yet"}`,
+    detail: () => backupStatus(),
+    run: async () => { await connectBackup(); if (backupState === "on") settingsNote("Saving to the Notepad file."); } },
+  { label: () => `Download all entries as a spreadsheet (${entryCount()})`,
+    run: () => { exportSubmissions(); settingsNote("Spreadsheet downloaded."); } },
+  { label: () => confirmReset ? "Press ENTER again to clear the high scores"
+                              : `Reset high scores (${loadScores().length} on the board)`,
+    detail: () => ["Names and emails already saved are kept", "#8f8a9e"],
+    run: () => {
+      if (!confirmReset) { confirmReset = true; return; }
+      try { localStorage.removeItem(STORE_KEY); } catch { /* storage blocked */ }
+      confirmReset = false;
+      settingsNote("High scores cleared.");
+    } },
+  { label: () => "Back to the game", run: () => { state = "title"; } },
+];
+
+function drawSettings() {
+  ctx.fillStyle = "rgba(14,12,20,0.75)";
+  ctx.fillRect(0, 0, W, H);
+  panel(40, 18, 240, 144);
+  textSans("SETTINGS", 54, 32, 11);
+  text("for HT staff", 266, 32, 5, "#8f8a9e", "right");
+  SETTINGS.forEach((item, i) => {
+    const y = 50 + i * 22;
+    const chosen = i === settingsSel;
+    if (chosen) {
+      ctx.fillStyle = "rgba(255,255,255,0.08)";
+      ctx.fillRect(48, y - 2, 224, 18);
+      ctx.fillStyle = HT_COLOURS[(i * 5 + 6) % 18];
+      ctx.fillRect(48, y - 2, 2, 18);
+    }
+    const danger = item === SETTINGS[2] && confirmReset;
+    text(item.label(), 56, y + 4, 5.5, danger ? "#ff8a8a" : chosen ? "#fff" : "#c9c4d6", "left");
+    if (item.detail) { const [d, c] = item.detail(); text(d, 56, y + 11, 4.3, c, "left"); }
+  });
+  if (settingsMsg && performance.now() - settingsMsgAt < 4000) text(settingsMsg, W / 2, 140, 5.5, "#7fd18b");
+  text("UP / DOWN choose · ENTER select · ESC close", W / 2, 152, 4.5, "#8f8a9e");
+}
+
+function drawRingSelect() {
+  // fade the world: dark on the left behind the words, lighter towards the wheel
+  const g = ctx.createLinearGradient(0, 0, W, 0);
+  g.addColorStop(0, "rgba(14,12,20,0.9)");
+  g.addColorStop(0.5, "rgba(14,12,20,0.6)");
+  g.addColorStop(1, "rgba(14,12,20,0.35)");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+  const c = who();
+
+  // title lockup
+  drawHTLogo(30, 28, 13);
+  textSans("HT DASH", 50, 24, 17);
+  text("an HT Media game", 51, 37, 5, "#b8b3c4", "left");
+  for (let i = 0; i < 18; i++) {                          // thin rule in the logo's colours
+    ctx.fillStyle = HT_COLOURS[i];
+    ctx.fillRect(18 + i * 7, 50, 6, 2);
+  }
+
+  // the chosen runner
+  text("YOUR RUNNER", 18, 66, 5, "#8f8a9e", "left");
+  textSans(c.name, 17, 82, 20, c.colour);
+  wrapLines(c.role, 24).forEach((line, i) => text(line, 18, 97 + i * 8, 6, "#e9e4f2", "left"));
+
+  // game stats as little bars in the runner's colour
+  [["SPEED", c.speed], ["JUMP", c.jump]].forEach(([label, v], row) => {
+    const y = 116 + row * 8;
+    text(label, 18, y, 4.5, "#8f8a9e", "left");
+    for (let k = 0; k < 5; k++) {
+      ctx.fillStyle = k < v ? c.colour : "rgba(255,255,255,0.15)";
+      ctx.fillRect(42 + k * 8, y - 2, 7, 4);
+    }
+  });
+
+  // controls: keys on a laptop, a PLAY button on an iPad
+  if (isTouch) {
+    text("Swipe or tap a face to choose", 18, 132, 5, "#b8b3c4", "left");
+    ctx.fillStyle = c.colour;
+    ctx.fillRect(PLAY_BTN.x, PLAY_BTN.y, PLAY_BTN.w, PLAY_BTN.h);
+    ctx.fillStyle = "rgba(14,12,20,0.25)";
+    ctx.fillRect(PLAY_BTN.x, PLAY_BTN.y + PLAY_BTN.h - 2, PLAY_BTN.w, 2);
+    textSans("PLAY", PLAY_BTN.x + PLAY_BTN.w / 2, PLAY_BTN.y + 9, 9, "#fff", "center");
+  } else {
+    keycap(18, 134, 12, "<"); keycap(32, 134, 12, ">");
+    text("choose", 50, 139.5, 5.5, "#b8b3c4", "left");
+    keycap(18, 149, 30, "SPACE");
+    text("play", 54, 154.5, 5.5, c.colour, "left");
+  }
+  if (logoHold) {                                          // staff holding the logo: fill a ring
+    const k = Math.min(1, (performance.now() - logoHold) / 3000);
+    ctx.beginPath(); ctx.arc(30, 28, 15.5, -Math.PI / 2, -Math.PI / 2 + k * Math.PI * 2);
+    ctx.strokeStyle = "#fff"; ctx.lineWidth = 1.5; ctx.stroke();
+  }
+
+  // best score, small
+  const top = loadScores()[0];
+  text(top ? `BEST  ${top.name}  ${top.score}` : "No scores yet. Be the first!", 18, 171, 5, "#8f8a9e", "left");
+
+  // staff status: is the Notepad backup working? (Ctrl+Alt+S opens settings)
+  const status = backupStatus();
+  text(`${status[0]} · ${isTouch ? "hold the logo for settings" : "Ctrl+Alt+S settings"}`, W - 6, 174, 4, status[1], "right");
+
+  // the wheel
+  const cx = 228, cy = 88, R = 68;
+  const diff = ((sel * 60 - ringShown) % 360 + 540) % 360 - 180;   // shortest way round
+  ringShown += diff * 0.18;
+  ctx.beginPath(); ctx.arc(cx, cy, R + 4, 0, Math.PI * 2);
+  ctx.fillStyle = "rgba(14,12,20,0.35)"; ctx.fill();      // soft shadow under the wheel
+  drawHTLogo(cx, cy, R, false);
+  // chosen runner, twice size, with a little idle bob (body dips, feet stay put) and a soft shadow
+  ctx.beginPath(); ctx.ellipse(cx, cy + 30, 15, 2.5, 0, 0, Math.PI * 2);
+  ctx.fillStyle = "rgba(255,255,255,0.08)"; ctx.fill();
+  ctx.drawImage(idleFrame(c.id, 0), cx - 32, cy - 30, 64, 64);
+  facePos = [];
+  CHARS.forEach((p, i) => {
+    const a = (-90 + i * 60 - ringShown) * Math.PI / 180;
+    const fx = Math.round(cx + R * 0.9 * Math.cos(a));
+    const fy = Math.round(cy + R * 0.9 * Math.sin(a) + Math.sin(t / 18 + i * 1.7) * 1.5);   // each face bobs, out of step
+    const chosen = i === sel;
+    facePos[i] = { x: fx, y: fy };                       // for tapping a face on an iPad
+    ctx.beginPath(); ctx.arc(fx, fy, chosen ? 13 : 10.5, 0, Math.PI * 2);
+    ctx.fillStyle = "#16141a"; ctx.fill();
+    ctx.lineWidth = chosen ? 2 : 1;
+    ctx.strokeStyle = chosen ? c.colour : "rgba(255,255,255,0.35)";
+    ctx.stroke();
+    const k = chosen ? 1.3 : 1;
+    ctx.drawImage(IMG[p.id + "_stand"], 8, 0, 16, 16, Math.round(fx - 8 * k), Math.round(fy - 8 * k), 16 * k, 16 * k);
+  });
+}
+
 function drawWorld() {
   const turbine = Math.floor(t / 6) % 4;
   ctx.drawImage(IMG.sky, 0, 0);
@@ -419,9 +839,13 @@ function drawWorld() {
   // the small white plane crosses the sky every so often
   const px = (t * 0.35) % (W + 600) - 40;
   if (px < W + 10) ctx.drawImage(IMG.plane, Math.round(px), Math.round(38 + Math.sin(t / 40) * 2));
-  tileLayer(IMG["far_" + turbine], distance * 0.1);
-  tileLayer(IMG["mid_" + turbine], distance * 0.3);
-  tileLayer(IMG.ground, distance);
+  const zs = state === "title" || state === "settings" || !zoneStarts ? { far: [], mid: [], ground: [] } : zoneStarts;
+  worldLayer([IMG["far_" + turbine], IMG["port_far_" + turbine], IMG.canal_far],
+             [IMG["trans_far_" + turbine], IMG["trans2_far_" + turbine]], LAYER_SPEED.far, zs.far);
+  worldLayer([IMG["mid_" + turbine], IMG.port_mid, IMG.canal_mid],
+             [IMG["trans_mid_" + turbine], IMG.trans2_mid], LAYER_SPEED.mid, zs.mid);
+  worldLayer([IMG.ground, IMG.port_ground, IMG.canal_ground],
+             [IMG.trans_ground, IMG.trans2_ground], LAYER_SPEED.ground, zs.ground);
 
   for (const w of wind) {
     ctx.fillStyle = `rgba(255,255,255,${w.a.toFixed(3)})`;
@@ -433,11 +857,20 @@ function drawWorld() {
   for (const o of obstacles || []) {
     const f = o.kind.frames;
     const im = IMG[f[Math.floor(t / (o.kind.blink || o.kind.spin || 10)) % f.length]];
+    if (o.kind.air !== undefined) {
+      // flying things glow so they stand out against the sky
+      const glow = glowOf(im, "#fff3b0");
+      for (const [ring, alpha] of [[2, 0.3], [1, 0.75]]) {
+        ctx.globalAlpha = alpha * (0.8 + 0.2 * Math.sin(t / 6));
+        for (const [gx, gy] of [[-ring, 0], [ring, 0], [0, -ring], [0, ring]]) ctx.drawImage(glow, Math.round(o.x) + gx, o.y + gy);
+      }
+      ctx.globalAlpha = 1;
+    }
     ctx.drawImage(im, Math.round(o.x), o.y);
   }
 
   // Dan
-  if (state === "title") { drawLineup(); return; }
+  if (state === "title" || state === "settings") { drawRingSelect(); return; }
   const menu = state === "board" || state === "name";
   const d = menu ? { x: 18, y: GROUND_Y - 30, onGround: true } : dan;
   const id = who().id;
@@ -447,7 +880,7 @@ function drawWorld() {
     else if (landTimer > 0) danImg = IMG[id + "_land"];
     else danImg = IMG[id + "_run_" + Math.floor(runClock) % RUN_FRAMES];
   } else if (state === "board") {
-    danImg = IMG[id + "_run_" + Math.floor(t / 6) % RUN_FRAMES];
+    danImg = idleFrame(id, 0);
   }
   if (power > 0 && (state === "play" || state === "crash") && (power > 120 || Math.floor(t / 6) % 2)) {
     // superhero cape while pie power lasts (it flickers in the last two seconds)
@@ -461,20 +894,33 @@ function drawWorld() {
     for (const [gx, gy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) ctx.drawImage(glow, Math.round(d.x) + gx, Math.round(d.y) + gy);
     ctx.globalAlpha = 1;
   }
-  ctx.drawImage(danImg, Math.round(d.x), Math.round(d.y));
+  if (!(state === "play" && invuln > 0 && Math.floor(t / 4) % 2)) ctx.drawImage(danImg, Math.round(d.x), Math.round(d.y));
+}
+
+// A little pixel heart for the lives counter.
+function heart(x, y, full) {
+  ctx.fillStyle = full ? "#e43b44" : "rgba(255,255,255,0.25)";
+  for (const [dx, dy, w] of [[1, 0, 2], [4, 0, 2], [0, 1, 7], [0, 2, 7], [1, 3, 5], [2, 4, 3], [3, 5, 1]]) ctx.fillRect(x + dx, y + dy, w, 1);
+  if (full) { ctx.fillStyle = "#ff9aa0"; ctx.fillRect(x + 1, y + 1, 1, 1); }
 }
 
 function drawHud() {
+  for (let i = 0; i < LIVES; i++) heart(8 + i * 10, 8, i < lives);
   if (power > 0) {
-    // pie power timer, top left
-    // pie power timer, top centre (clear of the drone and the score)
-    ctx.drawImage(IMG.pie, W / 2 - 38, 4);
-    ctx.fillStyle = "rgba(18,14,23,0.8)";
-    ctx.fillRect(W / 2 - 18, 9, 52, 7);
-    ctx.fillStyle = power < 120 && Math.floor(t / 8) % 2 ? "#fff" : "#e8a24a";
-    ctx.fillRect(W / 2 - 17, 10, Math.ceil(50 * power / POWER_FRAMES), 5);
+    // pie power timer, top centre: a mini HT ring whose segments switch off as it runs out
+    if (power > 120 || Math.floor(t / 8) % 2) {
+      ctx.beginPath(); ctx.arc(W / 2, 17, 13, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(18,14,23,0.75)"; ctx.fill();
+      drawRingTimer(W / 2, 17, 11, power / POWER_FRAMES);
+      ctx.drawImage(IMG.pie, W / 2 - 9, 10);
+    }
   }
   if (pieFlash > 0) text("PIE POWER! SUPER JUMP!", W / 2, 50, 10, "#ffd98a");
+  for (const p of popups) {                                  // "+5" floating up from a stomped obstacle
+    ctx.globalAlpha = Math.min(1, p.t / 15);
+    text(p.label || "+5", p.x, p.y, 9, p.colour || who().colour);
+    ctx.globalAlpha = 1;
+  }
   text(`SCORE ${String(score).padStart(5, "0")}`, W - 6, 10, 8, "#fff", "right");
   text(`BEST ${String(Math.max(bestScore(), score)).padStart(5, "0")}`, W - 6, 20, 7, "#ffe2b0", "right");
 }
@@ -550,10 +996,12 @@ function drawTable(x, y, highlight) {
   }
   list.forEach((e, i) => {
     const row = y + i * 9;
-    const colour = i === highlight ? "#f29a4a" : "#fff";
-    text(`${String(i + 1).padStart(2, " ")}.`, x, row, 7, colour, "right");
+    const runner = CHARS.find(c => c.id === e.runner);
+    const colour = runner ? runner.colour : "#fff";          // each name in their runner's colour
+    const mine = i === highlight;
+    text(`${String(i + 1).padStart(2, " ")}.`, x, row, 7, mine ? "#fff" : "#b8b3c4", "right");
     text(e.name, x + 6, row, 7, colour, "left");
-    text(String(e.score), x + 120, row, 7, colour, "right");
+    text(String(e.score) + (mine ? " <" : ""), x + 120 + (mine ? 9 : 0), row, 7, mine ? "#fff" : "#b8b3c4", "right");
   });
 }
 
@@ -565,36 +1013,55 @@ function draw() {
   if (state === "play" || state === "crash") drawHud();
 
   if (state === "crash") {
-    text("YA BUGGER!", W / 2, 60, 18, "#ff6b6b");
-  }
-
-  if (state === "title") {
-    panel(70, 6, 180, 52);
-    text("HT DASH", W / 2, 19, 16, "#f29a4a");
-    text("an HT Media game", W / 2, 32, 7, "#ffe2b0");
-    const top = loadScores()[0];
-    text(top ? `BEST: ${top.name} ${top.score}` : "No scores yet. Be the first!", W / 2, 46, 7, "#fff");
-    text("CHOOSE YOUR RUNNER", W / 2, 70, 9, "#fff");
-    text("LEFT / RIGHT: CHOOSE      SPACE: PLAY", W / 2, 82, 7, "#ffe2b0");
+    text("AHH, SHITE!", W / 2, 60, 18, "#ff6b6b");
   }
 
   if (state === "name") {
-    panel(60, 30, 200, 96);
-    text("GAME OVER", W / 2, 44, 14, "#f29a4a");
-    text(`You scored ${score}`, W / 2, 60, 9, "#fff");
-    text("Type your name for the high scores:", W / 2, 76, 7, "#ffe2b0");
-    ctx.fillStyle = "#fff";
-    ctx.fillRect(90, 84, 140, 16);
-    ctx.fillStyle = "#120e17";
-    ctx.fillRect(91, 85, 138, 14);
+    panel(50, 14, 220, 150);
+    text("GAME OVER", W / 2, 28, 14, who().colour);
+    text(`You scored ${score}`, W / 2, 43, 9, "#fff");
     const cursor = Math.floor(t / 20) % 2 === 0 ? "_" : " ";
-    text(nameText + cursor, W / 2, 92.5, 9, "#fff");
-    text("Press ENTER to save", W / 2, 112, 7, nameText.trim() ? "#fff" : "#8a8494");
+    const box = (label, value, y, active, hint) => {
+      text(label, 76, y - 7, 6, active ? "#ffe2b0" : "#8a8494", "left");
+      ctx.fillStyle = active ? who().colour : "#5a5466";
+      ctx.fillRect(74, y, 172, 16);
+      ctx.fillStyle = "#120e17";
+      ctx.fillRect(75, y + 1, 170, 14);
+      const shown = value || (active ? "" : hint);
+      text(shown + (active ? cursor : ""), W / 2, y + 8.5, value.length > 26 ? 6 : 8, value ? "#fff" : "#5a5466");
+    };
+    box("YOUR NAME (shown on the high scores)", nameText, 62, field === "name", "");
+    box("WORK EMAIL (never shown on screen)", emailText, 96, field === "email", "name@company.co.uk");
+    if (emailError) text("That email doesn't look right. Check it and try again.", W / 2, 122, 6, "#ff8a8a");
+    const ready = field === "name" ? nameText.trim() : emailText;
+    if (isTouch) {                                         // iPad: tap the boxes to type, then SAVE
+      if (!nameText && !emailText) text("Tap a box to type", W / 2, 50.5, 5, "#ffe2b0");
+      ctx.fillStyle = nameText.trim() && emailText ? who().colour : "#5a5466";
+      ctx.fillRect(SAVE_BTN.x, SAVE_BTN.y, SAVE_BTN.w, SAVE_BTN.h);
+      textSans("SAVE", W / 2, SAVE_BTN.y + 7.5, 8, "#fff", "center");
+    } else {
+      text(field === "name" ? "Press ENTER for the next box" : "Press ENTER to save", W / 2, 136, 7, ready ? "#fff" : "#8a8494");
+    }
+    text(`We save your email on this ${isTouch ? "device" : "laptop"} for HT Media only.`, W / 2, 148, 5, "#8a8494");
+    text("Say hello: info@ht-media.com", W / 2, 157, 6, who().colour);   // HT's contact email
   }
   if (state === "board") drawScoreSlate();
+  if (state === "settings") drawSettings();
 }
 
 // ----------------------------------------------------------------- input
+// Save the name and email (keyboard Enter, the iPad keyboard's return key, or the SAVE button).
+function submitEntry() {
+  if (!EMAIL_OK.test(emailText)) { emailError = true; return; }
+  saveSubmission({ name: nameText.trim(), email: emailText, score, runner: who().id });
+  writeBackup();                                                // update the Notepad file too
+  boardRank = saveScore(nameText.trim(), score, who().id);     // the table only keeps the name
+  obstacles = [];
+  boardSince = performance.now();
+  state = "board";
+  hideTyper();
+}
+
 function pressStart() {
   if (state === "title") { newRun(); jumpHeld = false; }
   else if (state === "board") { sel = 0; state = "title"; }       // Dan is the default again
@@ -602,21 +1069,55 @@ function pressStart() {
 }
 
 addEventListener("keydown", e => {
-  if (e.ctrlKey && e.altKey && e.key.toLowerCase() === "r") {
-    if (confirm("Clear the whole high score table?")) localStorage.removeItem(STORE_KEY);
+  if (e.ctrlKey && e.altKey && e.key.toLowerCase() === "b") {      // choose or reconnect the Notepad backup
+    connectBackup();
+    return;
+  }
+  if (e.ctrlKey && e.altKey && e.key.toLowerCase() === "e") {      // download every entry as a CSV
+    exportSubmissions();
+    return;
+  }
+  if (e.ctrlKey && e.altKey && e.key.toLowerCase() === "s" && (state === "title" || state === "settings")) {
+    state = state === "settings" ? "title" : "settings";
+    settingsSel = 0; confirmReset = false;
+    e.preventDefault();
+    return;
+  }
+  if (state === "settings") {
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      settingsSel = (settingsSel + (e.key === "ArrowDown" ? 1 : SETTINGS.length - 1)) % SETTINGS.length;
+      confirmReset = false;
+    } else if (e.key === "Enter" || e.key === " ") {
+      SETTINGS[settingsSel].run();
+    } else if (e.key === "Escape") {
+      state = "title"; confirmReset = false;
+    }
+    e.preventDefault();
     return;
   }
   if (state === "name") {
     nameSince = performance.now();
-    if (e.key === "Enter" && nameText.trim()) {
-      boardRank = saveScore(nameText.trim(), score, who().id);
-      obstacles = [];
-      boardSince = performance.now();
-      state = "board";
-    } else if (e.key === "Backspace") {
-      nameText = nameText.slice(0, -1);
-    } else if (e.key.length === 1 && /[a-z0-9 .'-]/i.test(e.key) && nameText.length < MAX_NAME) {
-      nameText += e.key.toUpperCase();
+    if (e.target === typer) {                     // typing on the iPad keyboard: the box handles letters
+      if (e.key === "Enter" || e.key === "Tab") {
+        e.preventDefault();
+        if (field === "name" && nameText.trim()) focusTyper("email");
+        else if (field === "email") submitEntry();
+      }
+      return;
+    }
+    if (field === "name") {
+      if ((e.key === "Enter" || e.key === "Tab") && nameText.trim()) field = "email";
+      else if (e.key === "Backspace") nameText = nameText.slice(0, -1);
+      else if (e.key.length === 1 && /[a-z0-9 .'-]/i.test(e.key) && nameText.length < MAX_NAME) nameText += e.key.toUpperCase();
+    } else {
+      emailError = false;
+      if (e.key === "Enter") {
+        submitEntry();
+      } else if (e.key === "Backspace") {
+        if (emailText) emailText = emailText.slice(0, -1);
+        else field = "name";                                          // back to the name box
+      } else if (e.key === "Tab") field = "name";
+      else if (e.key.length === 1 && /[a-z0-9@._+'-]/i.test(e.key) && emailText.length < MAX_EMAIL) emailText += e.key.toLowerCase();
     }
     e.preventDefault();
     return;
@@ -639,8 +1140,88 @@ addEventListener("keydown", e => {
 addEventListener("keyup", e => {
   if (e.key === " ") jumpHeld = false;
 });
-// The game is played with Space only. A click just gives the page keyboard focus.
-canvas.addEventListener("pointerdown", () => canvas.focus());
+// ----------------------------------------------------------------- touch (iPad) and mouse
+// Title: swipe or tap a face to choose, tap PLAY (or the runner) to start; hold the HT logo for
+// 3 seconds for settings. Playing: tap to jump, hold for a big jump. Game over: tap a box to type
+// on the iPad keyboard, tap SAVE. Scoreboard: tap to carry on. Settings: tap an option, tap outside to close.
+const typer = document.getElementById("typer");
+const isTouch = matchMedia("(pointer: coarse)").matches || "ontouchstart" in window;
+const NAME_BOX = { x: 74, y: 62, w: 172, h: 16 }, EMAIL_BOX = { x: 74, y: 96, w: 172, h: 16 };
+const SAVE_BTN = { x: 130, y: 126, w: 60, h: 15 }, PLAY_BTN = { x: 18, y: 138, w: 64, h: 18 };
+let facePos = [], downAt = null, logoHold = null;
+const inBox = (p, b) => p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b.y + b.h;
+
+function toGame(e) {
+  const r = canvas.getBoundingClientRect();
+  return { x: (e.clientX - r.left) / r.width * W, y: (e.clientY - r.top) / r.height * H };
+}
+
+function placeTyper(box) {                        // lay the invisible text box over the drawn one
+  const r = canvas.getBoundingClientRect(), k = r.width / W;
+  Object.assign(typer.style, { display: "block", left: r.left + box.x * k + "px", top: r.top + box.y * k + "px",
+    width: box.w * k + "px", height: box.h * k + "px" });
+}
+function focusTyper(which) {
+  field = which;
+  typer.value = which === "name" ? nameText : emailText;
+  typer.inputMode = which === "email" ? "email" : "text";
+  typer.type = which === "email" ? "email" : "text";
+  typer.setAttribute("autocapitalize", which === "name" ? "characters" : "none");
+  typer.setAttribute("enterkeyhint", which === "name" ? "next" : "done");
+  placeTyper(which === "name" ? NAME_BOX : EMAIL_BOX);
+  typer.focus();
+}
+function hideTyper() { typer.blur(); typer.style.display = "none"; }
+typer.addEventListener("input", () => {
+  nameSince = performance.now();
+  if (field === "name") {
+    nameText = typer.value.toUpperCase().replace(/[^A-Z0-9 .'-]/g, "").slice(0, MAX_NAME);
+    typer.value = nameText;
+  } else {
+    emailError = false;
+    emailText = typer.value.toLowerCase().replace(/[^a-z0-9@._+'-]/g, "").slice(0, MAX_EMAIL);
+  }
+});
+
+canvas.addEventListener("pointerdown", e => {
+  canvas.focus();
+  const p = toGame(e);
+  downAt = p;
+  if (state === "play") { e.preventDefault(); pressStart(); return; }
+  if (state === "title" && Math.hypot(p.x - 30, p.y - 28) < 15) logoHold = performance.now();   // staff: hold the logo
+});
+addEventListener("pointerup", e => {
+  jumpHeld = false;
+  const p = downAt ? toGame(e) : null;
+  const start = downAt;
+  downAt = null;
+  if (logoHold) {
+    const held = performance.now() - logoHold;
+    logoHold = null;
+    if (held >= 3000) { state = "settings"; settingsSel = 0; confirmReset = false; return; }
+  }
+  if (!p || e.target !== canvas) return;
+  if (state === "title") {
+    if (Math.abs(p.x - start.x) > 25) {                         // swipe to turn the wheel
+      sel = (sel + (p.x < start.x ? 1 : CHARS.length - 1)) % CHARS.length;
+      return;
+    }
+    const face = facePos.findIndex(f => Math.hypot(p.x - f.x, p.y - f.y) < 13);
+    if (face >= 0) { sel = face; return; }
+    if (inBox(p, PLAY_BTN) || Math.hypot(p.x - 228, p.y - 88) < 36) { newRun(); jumpHeld = false; }
+  } else if (state === "board") {
+    pressStart();
+  } else if (state === "name") {
+    if (inBox(p, NAME_BOX)) focusTyper("name");
+    else if (inBox(p, EMAIL_BOX)) focusTyper("email");
+    else if (inBox(p, SAVE_BTN)) { if (!nameText.trim()) focusTyper("name"); else submitEntry(); }
+  } else if (state === "settings") {
+    const row = SETTINGS.findIndex((_, i) => p.x >= 48 && p.x <= 272 && p.y >= 48 + i * 22 && p.y <= 66 + i * 22);
+    if (row >= 0) { settingsSel = row; SETTINGS[row].run(); }
+    else if (p.x < 40 || p.x > 280 || p.y < 18 || p.y > 162) { state = "title"; confirmReset = false; }
+  }
+});
+addEventListener("resize", () => { if (typer.style.display === "block") placeTyper(field === "name" ? NAME_BOX : EMAIL_BOX); });
 
 // ----------------------------------------------------------------- main loop
 // Fixed 60 updates a second, whatever the screen's refresh rate.
@@ -653,6 +1234,11 @@ function frame(now) {
   requestAnimationFrame(frame);
 }
 
+restoreBackup();
+navigator.storage?.persist?.();                    // ask the browser to keep saved entries
+if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
+  navigator.serviceWorker.register("sw.js").catch(() => {});   // works offline once loaded (when hosted)
+}
 loadAll().then(() => {
   distance = 0; score = 0; obstacles = [];
   requestAnimationFrame(frame);

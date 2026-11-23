@@ -27,8 +27,9 @@ import landmarks  # noqa: E402
 LANDMARK_SPOTS = [(58, landmarks.hospital), (204, landmarks.old_mine)]
 LANDMARK_IMAGES = [(x, fn()) for x, fn in LANDMARK_SPOTS]
 PLOTS = [(x - 4, x + im.width + 3) for x, im in LANDMARK_IMAGES]   # flattened ground
-COW = landmarks.field_cow()
-COW_SPOTS = [(14, False), (30, True), (258, False), (272, True)]  # (x, facing right?)
+# a mixed herd of UK breeds: (x, facing right?, breed)
+COW_SPOTS = [(14, False, "friesian"), (31, True, "highland"), (256, False, "belted"),
+             (272, True, "hereford"), (168, False, "jersey")]
 TREE_SPOTS = [46, 112, 160, 182, 250, 300]
 
 W, H = 320, 180
@@ -234,8 +235,9 @@ def hills_mid(frame):
                         col = "#3d7f39"
                     img.putpixel(((x + dx) % W, y + dy), hexc(col))
     from PIL import ImageOps
-    for x0, flip in COW_SPOTS:                # feet on the grass, halfway down the top field
-        im = ImageOps.mirror(COW) if flip else COW
+    for x0, flip, breed in COW_SPOTS:         # feet on the grass, halfway down the top field
+        cow = landmarks.field_cow(breed)
+        im = ImageOps.mirror(cow) if flip else cow
         feet = mid_ridge(x0 + im.width // 2) + 9
         img.alpha_composite(im, (x0, feet - im.height + 2))
     for x0, im in LANDMARK_IMAGES:            # stand on the flattened plot
