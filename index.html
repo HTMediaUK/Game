@@ -495,33 +495,97 @@ function glowOf(img, colour = "#ffd98a") {
   return glowCache.get(key);
 }
 
-// Title screen (design C): the team's faces round a big HT ring; the arrow keys turn it and
-// the chosen runner stands in the middle.
-let ringShown = 0;                                        // the ring's current turn, easing towards the choice
+// Title screen: title and the chosen runner on the left, the HT wheel on the right.
+// Left/Right turn the wheel; the chosen runner jogs in the middle of it.
+let ringShown = 0;                                        // the wheel's current turn, easing towards the choice
+
+function textSans(str, x, y, size, colour = "#fff", align = "left") {
+  ctx.font = `800 ${size}px "Segoe UI", "Helvetica Neue", Arial, sans-serif`;
+  ctx.textAlign = align;
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = "rgba(14,12,20,0.6)";
+  ctx.fillText(str, x + 0.6, y + 0.8);
+  ctx.fillStyle = colour;
+  ctx.fillText(str, x, y);
+}
+
+function keycap(x, y, w, label) {                         // a small key drawn like a keyboard key
+  ctx.fillStyle = "rgba(255,255,255,0.14)";
+  ctx.fillRect(x, y, w, 11);
+  ctx.fillStyle = "rgba(255,255,255,0.35)";
+  ctx.fillRect(x, y + 10, w, 1);
+  if (label === "<" || label === ">") {
+    const cx = x + w / 2, cy = y + 5.5, d = label === "<" ? -1 : 1;
+    ctx.beginPath(); ctx.moveTo(cx + 2 * d, cy); ctx.lineTo(cx - 1.5 * d, cy - 2.5); ctx.lineTo(cx - 1.5 * d, cy + 2.5);
+    ctx.closePath(); ctx.fillStyle = "#fff"; ctx.fill();
+  } else text(label, x + w / 2, y + 5.5, 5, "#fff");
+}
+
+function wrapLines(str, max) {
+  const lines = [];
+  for (const word of str.split(" ")) {
+    const last = lines[lines.length - 1];
+    if (last && (last + " " + word).length <= max) lines[lines.length - 1] = last + " " + word;
+    else lines.push(word);
+  }
+  return lines;
+}
+
 function drawRingSelect() {
-  ctx.fillStyle = "rgba(18,14,23,0.45)";                  // dim the world behind
+  // fade the world: dark on the left behind the words, lighter towards the wheel
+  const g = ctx.createLinearGradient(0, 0, W, 0);
+  g.addColorStop(0, "rgba(14,12,20,0.9)");
+  g.addColorStop(0.5, "rgba(14,12,20,0.6)");
+  g.addColorStop(1, "rgba(14,12,20,0.35)");
+  ctx.fillStyle = g;
   ctx.fillRect(0, 0, W, H);
-  const cx = 160, cy = 72, R = 60;
-  let diff = ((sel * 60 - ringShown) % 360 + 540) % 360 - 180;   // shortest way round
-  ringShown += diff * 0.18;
-  drawHTLogo(cx, cy, R, false);
   const c = who();
+
+  // title lockup
+  drawHTLogo(30, 28, 13);
+  textSans("HT DASH", 50, 24, 17);
+  text("an HT Media game", 51, 37, 5, "#b8b3c4", "left");
+  for (let i = 0; i < 18; i++) {                          // thin rule in the logo's colours
+    ctx.fillStyle = HT_COLOURS[i];
+    ctx.fillRect(18 + i * 7, 50, 6, 2);
+  }
+
+  // the chosen runner
+  text("YOUR RUNNER", 18, 66, 5, "#8f8a9e", "left");
+  textSans(c.name, 17, 82, 20, c.colour);
+  wrapLines(c.role, 24).forEach((line, i) => text(line, 18, 97 + i * 8, 6, "#e9e4f2", "left"));
+
+  // controls
+  keycap(18, 122, 12, "<"); keycap(32, 122, 12, ">");
+  text("choose", 50, 127.5, 5.5, "#b8b3c4", "left");
+  keycap(18, 138, 30, "SPACE");
+  text("play", 54, 143.5, 5.5, c.colour, "left");
+
+  // best score, small
+  const top = loadScores()[0];
+  text(top ? `BEST  ${top.name}  ${top.score}` : "No scores yet. Be the first!", 18, 166, 5, "#8f8a9e", "left");
+
+  // the wheel
+  const cx = 228, cy = 88, R = 68;
+  const diff = ((sel * 60 - ringShown) % 360 + 540) % 360 - 180;   // shortest way round
+  ringShown += diff * 0.18;
+  ctx.beginPath(); ctx.arc(cx, cy, R + 4, 0, Math.PI * 2);
+  ctx.fillStyle = "rgba(14,12,20,0.35)"; ctx.fill();      // soft shadow under the wheel
+  drawHTLogo(cx, cy, R, false);
   const img = IMG[c.id + "_run_" + Math.floor(t / 5) % RUN_FRAMES];
   ctx.drawImage(img, cx - 32, cy - 30, 64, 64);           // chosen runner, twice size, jogging
   CHARS.forEach((p, i) => {
     const a = (-90 + i * 60 - ringShown) * Math.PI / 180;
     const fx = Math.round(cx + R * 0.9 * Math.cos(a)), fy = Math.round(cy + R * 0.9 * Math.sin(a));
     const chosen = i === sel;
-    ctx.beginPath(); ctx.arc(fx, fy, chosen ? 12 : 10, 0, Math.PI * 2);
+    ctx.beginPath(); ctx.arc(fx, fy, chosen ? 13 : 10.5, 0, Math.PI * 2);
     ctx.fillStyle = "#16141a"; ctx.fill();
     ctx.lineWidth = chosen ? 2 : 1;
-    ctx.strokeStyle = chosen ? "#fff" : p.colour;
+    ctx.strokeStyle = chosen ? c.colour : "rgba(255,255,255,0.35)";
     ctx.stroke();
-    const k = chosen ? 1.25 : 1;
+    const k = chosen ? 1.3 : 1;
     ctx.drawImage(IMG[p.id + "_stand"], 8, 0, 16, 16, Math.round(fx - 8 * k), Math.round(fy - 8 * k), 16 * k, 16 * k);
   });
-  text(c.name, cx, 146, 12, c.colour);
-  text(c.role, cx, 158, 6, "#ffe2b0");
 }
 
 function drawWorld() {
@@ -695,22 +759,6 @@ function draw() {
 
   if (state === "crash") {
     text("AHH, SHITE!", W / 2, 60, 18, "#ff6b6b");
-  }
-
-  if (state === "title") {
-    // title panel with the HT logo inside it
-    panel(6, 6, 92, 58);
-    drawHTLogo(22, 24, 12);
-    text("HT DASH", 66, 19, 10, "#fff");
-    text("an HT Media game", 66, 30, 5, "#ffe2b0");
-    const top = loadScores()[0];
-    text(top ? "BEST" : "No scores yet.", 52, 44, 5, "#b8b3c4");
-    text(top ? `${top.name} ${top.score}` : "Be the first!", 52, 53, 5.5, "#fff");
-    // how to play
-    panel(222, 6, 92, 44);
-    text("LEFT / RIGHT", 268, 17, 6, "#fff");
-    text("turn the ring", 268, 26, 5, "#b8b3c4");
-    text("SPACE: PLAY", 268, 39, 7, who().colour);
   }
 
   if (state === "name") {
