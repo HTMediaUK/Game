@@ -148,14 +148,12 @@ def canal_mid():
         scots_pine(img, x, 113)
     cottage(img, 150, 112)
     stonework = bridge(img, 36, 104, 108)
-    # a boat passing under the bridge: drawn on a spare layer, then kept off the stonework
+    # a short boat passing under the bridge, sized and placed to sit wholly inside the arch
     boat = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-    canal_boat(boat, 60, 46, "#8e2a22", "#e5c41f", "#23305a")
-    for y in range(H):
-        for x in range(W):
-            px = boat.getpixel((x, y))
-            if px[3] and (x, y) not in stonework:
-                img.putpixel((x, y), px)
+    canal_boat(boat, 56, 28, "#8e2a22", "#e5c41f", "#23305a")
+    clipped = [(x, y) for y in range(H) for x in range(W) if boat.getpixel((x, y))[3] and (x, y) in stonework]
+    assert not clipped, f"boat under the bridge touches the stonework at {clipped[:5]}"
+    img.alpha_composite(boat)
     lock_gate(img, 128)
     canal_boat(img, 224, 44, "#2f5d3f", "#e5c41f", "#b2383e")
     canal_boat(img, 276, 36, "#23305a", "#e8e0c8", "#47984a")
