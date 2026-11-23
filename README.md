@@ -36,7 +36,7 @@ Pick a runner with the arrow keys, then the game is played with the **spacebar**
 | Space | Start, then jump. Tap for a small hop, hold for a big jump |
 | Type, then Enter | Add your name to the high scores at the end of a run |
 | F | Full screen on or off |
-| Ctrl+Alt+R | Clear the high score table (asks first). Saved entries are kept |
+| Ctrl+Alt+S | Settings (staff, from the title screen): save location, download entries, reset high scores |
 | Ctrl+Alt+B | Choose (or reconnect) the Notepad backup file |
 | Ctrl+Alt+E | Download every entry (name, work email, score, runner, date, time) as a spreadsheet (CSV) |
 
@@ -69,6 +69,14 @@ Faint wind streaks start rushing past as the speed picks up. Seagulls and drones
 - The pie power timer is a mini HT ring whose segments switch off as the power runs out.
 
 The speed rises the whole time and the gaps between obstacles shrink.
+
+## Settings (for staff)
+
+On the title screen press **Ctrl+Alt+S**. Up/Down to move, Enter to select, Esc to close.
+
+- **Save location:** shows the Notepad backup file and whether it's on; Enter to choose it (or allow it again after a refresh).
+- **Download all entries:** a spreadsheet of every name, email and score.
+- **Reset high scores:** press Enter twice to confirm. Only the scoreboard is cleared; names and emails already saved are kept.
 
 ## Lives and game stats
 

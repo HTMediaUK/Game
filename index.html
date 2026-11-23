@@ -22,7 +22,7 @@
 //   Space               start, and jump (tap for a hop, hold for a big jump)
 //   Enter               save your name at the end of a run
 //   F                   full screen
-//   Ctrl+Alt+R          clear the high score table (asks first; entries are kept)
+//   Ctrl+Alt+S          settings (title screen): save location, download entries, reset high scores
 //   Ctrl+Alt+E          download every entry (name, work email, score) as a CSV
 //   Ctrl+Alt+B          choose (or reconnect) the Notepad backup file, rewritten after every entry
 // Collect a pie to jump twice as high for 10 seconds (and bounce off things you land on).
@@ -263,7 +263,7 @@ function bestScore() {
 }
 
 // ----------------------------------------------------------------- game state
-let state = "title";            // title | play | crash | name | board
+let state = "title";            // title | play | crash | name | board | settings
 let t = 0;                      // frames since the page started
 let speed, distance, score, obstacles, nextGap, dan, crashAt, nameText, nameSince, boardRank, boardSince;
 let emailText = "", field = "name", emailError = false;   // end card: name, then work email
@@ -633,6 +633,67 @@ function idleFrame(id, phase) {
   return IMG[id + ((t + phase) % 64 < 40 ? "_stand" : "_land")];
 }
 
+function entryCount() {
+  const count = loadSubmissions().length;
+  return `${count} ${count === 1 ? "entry" : "entries"}`;
+}
+
+function backupStatus() {
+  const n = entryCount();
+  const at = backupAt ? backupAt.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }) : "";
+  return {
+    on: [`Notepad backup on · ${n}${at ? " · saved " + at : ""}`, "#7fd18b"],
+    reconnect: ["Notepad backup paused · choose it again to allow", "#ffb84d"],
+    off: [`Notepad backup off · ${n}`, "#ffb84d"],
+    unsupported: ["Notepad backup needs Chrome or Edge", "#ff8a8a"],
+    error: ["Notepad backup failed · choose the file again", "#ff8a8a"],
+  }[backupState];
+}
+
+// ---- Settings (staff only): Ctrl+Alt+S on the title screen. Up/Down move, Enter selects, Esc closes.
+let settingsSel = 0, confirmReset = false, settingsMsg = "", settingsMsgAt = 0;
+function settingsNote(msg) { settingsMsg = msg; settingsMsgAt = performance.now(); }
+const SETTINGS = [
+  { label: () => `Save location: ${backupHandle ? backupHandle.name : "not chosen yet"}`,
+    detail: () => backupStatus(),
+    run: async () => { await connectBackup(); if (backupState === "on") settingsNote("Saving to the Notepad file."); } },
+  { label: () => `Download all entries as a spreadsheet (${entryCount()})`,
+    run: () => { exportSubmissions(); settingsNote("Spreadsheet downloaded."); } },
+  { label: () => confirmReset ? "Press ENTER again to clear the high scores"
+                              : `Reset high scores (${loadScores().length} on the board)`,
+    detail: () => ["Names and emails already saved are kept", "#8f8a9e"],
+    run: () => {
+      if (!confirmReset) { confirmReset = true; return; }
+      try { localStorage.removeItem(STORE_KEY); } catch { /* storage blocked */ }
+      confirmReset = false;
+      settingsNote("High scores cleared.");
+    } },
+  { label: () => "Back to the game", run: () => { state = "title"; } },
+];
+
+function drawSettings() {
+  ctx.fillStyle = "rgba(14,12,20,0.75)";
+  ctx.fillRect(0, 0, W, H);
+  panel(40, 18, 240, 144);
+  textSans("SETTINGS", 54, 32, 11);
+  text("for HT staff", 266, 32, 5, "#8f8a9e", "right");
+  SETTINGS.forEach((item, i) => {
+    const y = 50 + i * 22;
+    const chosen = i === settingsSel;
+    if (chosen) {
+      ctx.fillStyle = "rgba(255,255,255,0.08)";
+      ctx.fillRect(48, y - 2, 224, 18);
+      ctx.fillStyle = HT_COLOURS[(i * 5 + 6) % 18];
+      ctx.fillRect(48, y - 2, 2, 18);
+    }
+    const danger = item === SETTINGS[2] && confirmReset;
+    text(item.label(), 56, y + 4, 5.5, danger ? "#ff8a8a" : chosen ? "#fff" : "#c9c4d6", "left");
+    if (item.detail) { const [d, c] = item.detail(); text(d, 56, y + 11, 4.3, c, "left"); }
+  });
+  if (settingsMsg && performance.now() - settingsMsgAt < 4000) text(settingsMsg, W / 2, 140, 5.5, "#7fd18b");
+  text("UP / DOWN choose · ENTER select · ESC close", W / 2, 152, 4.5, "#8f8a9e");
+}
+
 function drawRingSelect() {
   // fade the world: dark on the left behind the words, lighter towards the wheel
   const g = ctx.createLinearGradient(0, 0, W, 0);
@@ -677,18 +738,9 @@ function drawRingSelect() {
   const top = loadScores()[0];
   text(top ? `BEST  ${top.name}  ${top.score}` : "No scores yet. Be the first!", 18, 171, 5, "#8f8a9e", "left");
 
-  // staff status: is the Notepad backup working?
-  const count = loadSubmissions().length;
-  const n = `${count} ${count === 1 ? "entry" : "entries"}`;
-  const at = backupAt ? backupAt.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }) : "";
-  const status = {
-    on: [`Notepad backup on · ${n}${at ? " · saved " + at : ""}`, "#7fd18b"],
-    reconnect: ["Notepad backup paused · press Ctrl+Alt+B to allow", "#ffb84d"],
-    off: [`Notepad backup off · Ctrl+Alt+B to choose a file · ${n}`, "#ffb84d"],
-    unsupported: ["Notepad backup needs Chrome or Edge", "#ff8a8a"],
-    error: ["Notepad backup failed · press Ctrl+Alt+B", "#ff8a8a"],
-  }[backupState];
-  text(status[0], W - 6, 174, 4, status[1], "right");
+  // staff status: is the Notepad backup working? (Ctrl+Alt+S opens settings)
+  const status = backupStatus();
+  text(`${status[0]} · Ctrl+Alt+S settings`, W - 6, 174, 4, status[1], "right");
 
   // the wheel
   const cx = 228, cy = 88, R = 68;
@@ -751,7 +803,7 @@ function drawWorld() {
   }
 
   // Dan
-  if (state === "title") { drawRingSelect(); return; }
+  if (state === "title" || state === "settings") { drawRingSelect(); return; }
   const menu = state === "board" || state === "name";
   const d = menu ? { x: 18, y: GROUND_Y - 30, onGround: true } : dan;
   const id = who().id;
@@ -919,6 +971,7 @@ function draw() {
     text("We save your email on this laptop for HT Media only.", W / 2, 152, 5, "#8a8494");
   }
   if (state === "board") drawScoreSlate();
+  if (state === "settings") drawSettings();
 }
 
 // ----------------------------------------------------------------- input
@@ -937,8 +990,22 @@ addEventListener("keydown", e => {
     exportSubmissions();
     return;
   }
-  if (e.ctrlKey && e.altKey && e.key.toLowerCase() === "r") {
-    if (confirm("Clear the whole high score table?")) localStorage.removeItem(STORE_KEY);
+  if (e.ctrlKey && e.altKey && e.key.toLowerCase() === "s" && (state === "title" || state === "settings")) {
+    state = state === "settings" ? "title" : "settings";
+    settingsSel = 0; confirmReset = false;
+    e.preventDefault();
+    return;
+  }
+  if (state === "settings") {
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      settingsSel = (settingsSel + (e.key === "ArrowDown" ? 1 : SETTINGS.length - 1)) % SETTINGS.length;
+      confirmReset = false;
+    } else if (e.key === "Enter" || e.key === " ") {
+      SETTINGS[settingsSel].run();
+    } else if (e.key === "Escape") {
+      state = "title"; confirmReset = false;
+    }
+    e.preventDefault();
     return;
   }
   if (state === "name") {
