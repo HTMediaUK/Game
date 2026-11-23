@@ -91,22 +91,33 @@ def cottage(img, x, base):
 
 
 def bridge(img, x0, x1, deck):
-    """Stone humpback bridge carrying a lane over the canal: a hump on top,
-    an arch over the water, stone abutments down to the water at each end."""
+    """Stone humpback bridge carrying a lane over the canal: a hump on top, an arch
+    with the canal running through it underneath, stone abutments at each end.
+    Returns the set of stone pixels so things can pass behind the stonework."""
     stone, dark, light = hexc("#9a948a"), hexc("#7a756c"), hexc("#b5afa4")
     mid, half = (x0 + x1) / 2, (x1 - x0) / 2
     span = half * 0.62                                   # half-width of the arch opening
+    solid = set()
     for x in range(x0, x1 + 1):
         top = deck - round(6 * math.cos((x - mid) / (x1 - x0) * math.pi))   # humped parapet
         dx = (x - mid) / span
-        arch_top = CANAL_WATER + 2 - round(18 * math.sqrt(max(0.0, 1 - dx * dx))) if abs(dx) < 1 else None
-        for y in range(top, CANAL_WATER + 3):
+        arch_top = CANAL_WATER + 2 - round(20 * math.sqrt(max(0.0, 1 - dx * dx))) if abs(dx) < 1 else None
+        for y in range(top - 1, H):
             if arch_top is not None and y >= arch_top:
-                break                                    # under the arch: open water
+                # under the arch: shadowed underside, then the canal running on through
+                if y < CANAL_WATER:
+                    depth = y - arch_top
+                    img.putpixel((x % W, y), hexc("#3a3840" if depth < 3 else "#2c3a40"))
+                else:
+                    img.putpixel((x % W, y), hexc("#244f5a" if (x + y) % 9 else "#3f7d8a"))
+                continue
+            if y >= CANAL_WATER + 3:
+                break                                    # abutments stop at the water
             edge = arch_top is not None and y == arch_top - 1
-            c = light if y == top else dark if edge or (x * 3 + (y // 3) * 5) % 11 == 0 else stone
+            c = dark if y == top - 1 or edge or (x * 3 + (y // 3) * 5) % 11 == 0 else light if y == top else stone
             img.putpixel((x % W, y), c)
-        img.putpixel((x % W, top - 1), dark)             # parapet coping
+            solid.add((x % W, y))
+    return solid
 
 
 def lock_gate(img, x):
@@ -136,7 +147,15 @@ def canal_mid():
     for x in (8, 20, 196, 214, 300):
         scots_pine(img, x, 113)
     cottage(img, 150, 112)
-    bridge(img, 36, 104, 108)
+    stonework = bridge(img, 36, 104, 108)
+    # a boat passing under the bridge: drawn on a spare layer, then kept off the stonework
+    boat = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    canal_boat(boat, 60, 46, "#8e2a22", "#e5c41f", "#23305a")
+    for y in range(H):
+        for x in range(W):
+            px = boat.getpixel((x, y))
+            if px[3] and (x, y) not in stonework:
+                img.putpixel((x, y), px)
     lock_gate(img, 128)
     canal_boat(img, 224, 44, "#2f5d3f", "#e5c41f", "#b2383e")
     canal_boat(img, 276, 36, "#23305a", "#e8e0c8", "#47984a")
