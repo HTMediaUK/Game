@@ -87,7 +87,7 @@ Each runner has two made-up game stats out of 5, shown as bars on the intro scre
 
 ## Stepping on obstacles
 
-Land on top of anything (camera kit, animals, containers, even a seagull) and you bounce off it and score **+5**, once per obstacle. Hitting the side still ends the run.
+Land on top of anything (camera kit, animals, containers, even a seagull) and you bounce off it and score **+5**, once per obstacle. Each +5 pops up in the next colour from the HT logo. Hitting the side still ends the run.
 
 ## Pie power
 

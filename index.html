@@ -275,6 +275,10 @@ let bufferedAt = -99;              // Space pressed just before landing still co
 let runTime = 0;                   // frames since this run started (60 a second)
 let wind = [];                     // faint streaks that rush past once the run speeds up
 let bonus = 0, popups = [];        // +5 for landing on top of an obstacle, and the floating "+5"
+let stomps = 0;                    // each +5 takes the next HT colour
+// the brighter HT logo colours, in ring order (the darkest ones get lost against the sky)
+const STOMP_COLOURS = ["#c49782", "#66bfad", "#d97e30", "#c45b66", "#9dbc3e", "#e1a22e",
+  "#47984a", "#e5c41f", "#b85895", "#138aa8", "#8883b5", "#b2383e"];
 let portStart = null;              // where (in each layer's own scroll) the field-to-port piece begins
 let take = 1;                      // today's take number, shown on the high score slate
 
@@ -310,7 +314,7 @@ function newRun() {
   pieGap = 700 + Math.random() * 500;
   runTime = 0;
   wind = [];
-  bonus = 0; popups = []; portStart = null;
+  bonus = 0; popups = []; portStart = null; stomps = 0;
   lives = LIVES; invuln = 0;
   take = nextTake();
   power = 0;
@@ -463,7 +467,7 @@ function update() {
       if (!o.stomped) {
         o.stomped = true;
         bonus += 5;
-        popups.push({ x: o.x + o.w / 2, y: o.y - 4, t: 45 });
+        popups.push({ x: o.x + o.w / 2, y: o.y - 4, t: 45, colour: STOMP_COLOURS[stomps++ % STOMP_COLOURS.length] });
       }
       continue;
     }
