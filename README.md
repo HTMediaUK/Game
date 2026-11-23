@@ -69,6 +69,21 @@ Faint wind streaks start rushing past as the speed picks up. Seagulls and drones
 
 The speed rises the whole time and the gaps between obstacles shrink.
 
+## Lives and game stats
+
+Everyone gets **3 lives** (hearts, top left). Hit something and you lose one, flash for a second and a half, and keep running. The third hit ends the run. Change `LIVES` in `index.html` for more or fewer.
+
+Each runner has two made-up game stats out of 5, shown as bars on the intro screen. **Speed** makes the world move faster (more points, less time to react) and **Jump** makes them jump higher (clears tall things, but you can land on the next obstacle). Each pair adds up to 6, so nobody is simply better:
+
+| Runner | Speed | Jump |
+|---|---|---|
+| Dan | 3 | 3 |
+| Dave | 2 | 4 |
+| Mark | 4 | 2 |
+| Beth | 5 | 1 |
+| Sam | 1 | 5 |
+| Jonas | 3 | 3 |
+
 ## Stepping on obstacles
 
 Land on top of anything (camera kit, animals, containers, even a seagull) and you bounce off it and score **+5**, once per obstacle. Hitting the side still ends the run.

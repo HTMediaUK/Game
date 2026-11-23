@@ -79,14 +79,20 @@ const ASSETS = {
 // The HT team. Dan is the default runner; the arrow keys on the title screen pick someone else.
 const CHARS = [
   // each runner has their own colour from the HT logo ring
-  { id: "dan",   name: "DAN",   role: "Managing Director",                 colour: "#d97e30" },
-  { id: "dave",  name: "DAVE",  role: "Production Director",               colour: "#66bfad" },
-  { id: "mark",  name: "MARK",  role: "Creative Director",                 colour: "#9dbc3e" },
-  { id: "beth",  name: "BETH",  role: "Operations & Creative Coordinator", colour: "#b85895" },
-  { id: "sam",   name: "SAM",   role: "Editor",                            colour: "#138aa8" },
-  { id: "jonas", name: "JONAS", role: "Creative Producer",                 colour: "#e1a22e" },
+  // game stats (made up, out of 5, each pair adds to 6): speed = how fast the world moves,
+  // jump = how high they go
+  { id: "dan",   name: "DAN",   role: "Managing Director",                 colour: "#d97e30", speed: 3, jump: 3 },
+  { id: "dave",  name: "DAVE",  role: "Production Director",               colour: "#66bfad", speed: 2, jump: 4 },
+  { id: "mark",  name: "MARK",  role: "Creative Director",                 colour: "#9dbc3e", speed: 4, jump: 2 },
+  { id: "beth",  name: "BETH",  role: "Operations & Creative Coordinator", colour: "#b85895", speed: 5, jump: 1 },
+  { id: "sam",   name: "SAM",   role: "Editor",                            colour: "#138aa8", speed: 1, jump: 5 },
+  { id: "jonas", name: "JONAS", role: "Creative Producer",                 colour: "#e1a22e", speed: 3, jump: 3 },
 ];
 let sel = 0;                      // which runner is chosen
+const speedMul = () => 1 + (who().speed - 3) * 0.06;   // 0.88 to 1.12
+const jumpMul = () => 1 + (who().jump - 3) * 0.04;     // take-off speed; height changes about 0.85 to 1.17
+const LIVES = 3;                  // crashes allowed per run
+let lives = LIVES, invuln = 0;    // invuln: frames of flashing, can't-be-hit time after losing a life
 const who = () => CHARS[sel];
 const RUN_FRAMES = 6;
 for (const c of CHARS) {
@@ -228,6 +234,7 @@ function newRun() {
   runTime = 0;
   wind = [];
   bonus = 0; popups = []; portStart = null;
+  lives = LIVES; invuln = 0;
   take = nextTake();
   power = 0;
   pieFlash = 0;
@@ -236,7 +243,7 @@ function newRun() {
 
 function jump() {
   if (dan.onGround) {
-    dan.vy = power > 0 ? -7.5 : -5.3;   // pie power: twice as high
+    dan.vy = (power > 0 ? -7.5 : -5.3) * jumpMul();   // pie power: twice as high; jump stat on top
     dan.onGround = false;
   }
 }
@@ -311,7 +318,8 @@ function update() {
 
   runTime++;
   // speed: 2.6 at the start, about 7 at 50 seconds, then it keeps on climbing
-  speed = 2.6 + 4.4 * Math.pow(difficulty(), 1.3) + Math.max(0, secs() - 50) * 0.12;
+  speed = (2.6 + 4.4 * Math.pow(difficulty(), 1.3) + Math.max(0, secs() - 50) * 0.12) * speedMul();
+  if (invuln > 0) invuln--;
   distance += speed;
   score = Math.floor(distance / 10) + bonus;
   if (!portStart && secs() >= PORT_AT) startPort();
@@ -369,7 +377,7 @@ function update() {
   obstacles = obstacles.filter(o => o.x + o.w > -4);
 
   for (const o of obstacles) {
-    if (!hit(o)) continue;
+    if (o.hurt || !hit(o)) continue;
     // coming down on top of something: bounce off it and score 5 (once per obstacle)
     const feetBefore = dan.y + 29 - dan.vy;
     if (dan.vy > 0 && feetBefore <= o.y + 6) {
@@ -380,6 +388,14 @@ function update() {
         bonus += 5;
         popups.push({ x: o.x + o.w / 2, y: o.y - 4, t: 45 });
       }
+      continue;
+    }
+    if (invuln > 0) continue;                       // just lost a life: flashing, can't be hit
+    lives--;
+    o.hurt = true;                                  // run straight through the thing you hit
+    if (lives > 0) {
+      invuln = 90;                                  // 1.5 seconds to recover
+      popups.push({ x: dan.x + 16, y: dan.y - 4, t: 50, label: "-1", colour: "#ff6b6b" });
       continue;
     }
     state = "crash";
@@ -555,15 +571,25 @@ function drawRingSelect() {
   textSans(c.name, 17, 82, 20, c.colour);
   wrapLines(c.role, 24).forEach((line, i) => text(line, 18, 97 + i * 8, 6, "#e9e4f2", "left"));
 
+  // game stats as little bars in the runner's colour
+  [["SPEED", c.speed], ["JUMP", c.jump]].forEach(([label, v], row) => {
+    const y = 116 + row * 8;
+    text(label, 18, y, 4.5, "#8f8a9e", "left");
+    for (let k = 0; k < 5; k++) {
+      ctx.fillStyle = k < v ? c.colour : "rgba(255,255,255,0.15)";
+      ctx.fillRect(42 + k * 8, y - 2, 7, 4);
+    }
+  });
+
   // controls
-  keycap(18, 122, 12, "<"); keycap(32, 122, 12, ">");
-  text("choose", 50, 127.5, 5.5, "#b8b3c4", "left");
-  keycap(18, 138, 30, "SPACE");
-  text("play", 54, 143.5, 5.5, c.colour, "left");
+  keycap(18, 134, 12, "<"); keycap(32, 134, 12, ">");
+  text("choose", 50, 139.5, 5.5, "#b8b3c4", "left");
+  keycap(18, 149, 30, "SPACE");
+  text("play", 54, 154.5, 5.5, c.colour, "left");
 
   // best score, small
   const top = loadScores()[0];
-  text(top ? `BEST  ${top.name}  ${top.score}` : "No scores yet. Be the first!", 18, 166, 5, "#8f8a9e", "left");
+  text(top ? `BEST  ${top.name}  ${top.score}` : "No scores yet. Be the first!", 18, 171, 5, "#8f8a9e", "left");
 
   // the wheel
   const cx = 228, cy = 88, R = 68;
@@ -647,10 +673,18 @@ function drawWorld() {
     for (const [gx, gy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) ctx.drawImage(glow, Math.round(d.x) + gx, Math.round(d.y) + gy);
     ctx.globalAlpha = 1;
   }
-  ctx.drawImage(danImg, Math.round(d.x), Math.round(d.y));
+  if (!(state === "play" && invuln > 0 && Math.floor(t / 4) % 2)) ctx.drawImage(danImg, Math.round(d.x), Math.round(d.y));
+}
+
+// A little pixel heart for the lives counter.
+function heart(x, y, full) {
+  ctx.fillStyle = full ? "#e43b44" : "rgba(255,255,255,0.25)";
+  for (const [dx, dy, w] of [[1, 0, 2], [4, 0, 2], [0, 1, 7], [0, 2, 7], [1, 3, 5], [2, 4, 3], [3, 5, 1]]) ctx.fillRect(x + dx, y + dy, w, 1);
+  if (full) { ctx.fillStyle = "#ff9aa0"; ctx.fillRect(x + 1, y + 1, 1, 1); }
 }
 
 function drawHud() {
+  for (let i = 0; i < LIVES; i++) heart(8 + i * 10, 8, i < lives);
   if (power > 0) {
     // pie power timer, top centre: a mini HT ring whose segments switch off as it runs out
     if (power > 120 || Math.floor(t / 8) % 2) {
@@ -663,7 +697,7 @@ function drawHud() {
   if (pieFlash > 0) text("PIE POWER! SUPER JUMP!", W / 2, 50, 10, "#ffd98a");
   for (const p of popups) {                                  // "+5" floating up from a stomped obstacle
     ctx.globalAlpha = Math.min(1, p.t / 15);
-    text("+5", p.x, p.y, 9, who().colour);
+    text(p.label || "+5", p.x, p.y, 9, p.colour || who().colour);
     ctx.globalAlpha = 1;
   }
   text(`SCORE ${String(score).padStart(5, "0")}`, W - 6, 10, 8, "#fff", "right");
