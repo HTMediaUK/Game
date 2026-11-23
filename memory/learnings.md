@@ -42,4 +42,5 @@ Format: `- **G-###** (seen n) Rule. *(source · DD/MM/YYYY)*`
 - **G-025** (seen 1) Entries must survive a refresh or a dead laptop: keep the browser copy, plus an automatic Notepad (.txt) backup with date, name, email and score, ideally in a synced folder. *(HT · 23/11/2026)*
 - **G-026** (seen 1) The run goes country (0s) → port (15s) → Scottish canal (30s), each arriving within the scrolling world. Client places stay generic unless HT names a landmark. *(HT · 23/11/2026)*
 - **G-027** (seen 1) The countryside has a mix of UK cattle breeds (Friesian, Highland, Belted Galloway, Hereford, Jersey), as obstacles and grazing in the fields. *(HT · 23/11/2026)*
+- **G-028** (seen 1) The game over card shows HT's email: info@ht-media.com. *(HT · 23/11/2026)*
 - **G-022** (seen 1) Real-world things (cranes, ships) need their proper parts drawn, not a simplified sketch that reads as broken. *("cranes … seem broken and missing parts" · 23/11/2026)*

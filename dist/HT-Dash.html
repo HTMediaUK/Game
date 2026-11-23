@@ -1128,7 +1128,8 @@ function draw() {
     if (emailError) text("That email doesn't look right. Check it and try again.", W / 2, 122, 6, "#ff8a8a");
     const ready = field === "name" ? nameText.trim() : emailText;
     text(field === "name" ? "Press ENTER for the next box" : "Press ENTER to save", W / 2, 136, 7, ready ? "#fff" : "#8a8494");
-    text("We save your email on this laptop for HT Media only.", W / 2, 152, 5, "#8a8494");
+    text("We save your email on this laptop for HT Media only.", W / 2, 148, 5, "#8a8494");
+    text("Say hello: info@ht-media.com", W / 2, 157, 6, who().colour);   // HT's contact email
   }
   if (state === "board") drawScoreSlate();
   if (state === "settings") drawSettings();
