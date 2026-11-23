@@ -1,6 +1,26 @@
 # HT Dash: HT's expo game
 
-A simple pixel art running game for HT Media's trade show stand. Dan runs through the British countryside, jumping over camera kit, roadworks, cows and sheep, dodging seagulls and drones, and grabbing pies for super jumps. It runs in a web browser, needs no internet and nothing to install.
+A simple pixel art running game for HT Media's trade show stand. Dan runs through the British countryside, a port and a Scottish canal, jumping over camera kit, cows and sheep, dodging seagulls and drones, and grabbing pies for super jumps. It runs in a web browser, needs no internet once loaded, and nothing to install.
+
+**Play it online:** https://htmediauk.github.io/Game/ (once GitHub Pages is switched on, see below)
+
+## Play it from GitHub (any computer, iPad or phone)
+
+To turn this repo into a web address, a repo admin does this once:
+
+1. **Settings → General → Danger zone → Change visibility → Public.** (GitHub Pages is free for public repos.)
+2. **Settings → Pages → Build and deployment:** Source **Deploy from a branch**, Branch **main**, folder **/ (root)**, then **Save**.
+3. Wait a minute or two. The game is then at **https://htmediauk.github.io/Game/**. Every change merged into `main` goes live a minute or so later.
+
+## Play it on an iPad
+
+1. Open **https://htmediauk.github.io/Game/** in **Safari** (with Wi-Fi, the first time).
+2. Tap **Share → Add to Home Screen**. Open it from the new **HT Dash** icon: it runs full screen like an app and keeps working with no internet.
+3. For the stand, turn on **Guided Access** (Settings → Accessibility → Guided Access) so visitors can't leave the game.
+
+On a touchscreen: **swipe or tap a face** to choose a runner, tap **PLAY**, **tap to jump** (hold for a big jump), tap the boxes to type a name and email, then tap **SAVE**. Staff: **hold the HT logo for 3 seconds** for settings.
+
+Entries are saved on the iPad itself. The automatic Notepad backup only works on a computer (Chrome or Edge), so on an iPad use **Settings → Download all entries** at the end of each day; it saves a spreadsheet to the Files app. The iPad and the laptop keep separate scoreboards and entries.
 
 ## How to play it on the stand laptop
 
@@ -139,6 +159,8 @@ The top 10 are saved in Chrome on that laptop, so they survive closing the game 
 | Path | What it is |
 |---|---|
 | `index.html` | The whole game |
+| `sw.js`, `manifest.webmanifest` | Let it work offline and install to an iPad's home screen when hosted |
+| `tools/make_icon.py` | Draws the home-screen icon (`sprites/ui/app_icon.png`) |
 | `sprites/ui/` | Pixel versions of the HT logo, used in the mockups (the game draws the logo smoothly in code) |
 | `sprites/src/port.py` | Draws the port: sea, wind farm, container ship, crane, tug and quayside |
 | `sprites/src/canal.py` | Draws the Scottish canal: Highland hills, canal, boats, bridge, lock, cottage and towpath |

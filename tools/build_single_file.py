@@ -26,6 +26,7 @@ patterns = []
 for tpl in re.findall(r'`(sprites/[^`]+\.png)`', html):
     patterns.append(re.compile("^" + re.sub(r"\\\$\\\{[^}]*\\\}", ".+", re.escape(tpl)) + "$"))
 used |= {p for p in embed if any(rx.match(p) for rx in patterns)}
+used.discard("sprites/ui/app_icon.png")     # home-screen icon: only needed when hosted
 missing = sorted(p for p in used if p not in embed)
 assert not missing, f"images the game loads but the build can't find: {missing}"
 embed = {k: v for k, v in embed.items() if k in used}

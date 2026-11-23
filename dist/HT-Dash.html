@@ -2,17 +2,31 @@
 <html lang="en-GB">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>HT Dash</title>
+<meta name="theme-color" content="#0e0c12">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="HT Dash">
+<link rel="apple-touch-icon" href="sprites/ui/app_icon.png">
+<link rel="icon" href="sprites/ui/app_icon.png">
+<link rel="manifest" href="manifest.webmanifest">
 <style>
   :root { --bg: #0e0c12; }
   html, body { margin: 0; height: 100%; background: var(--bg); overflow: hidden; }
   body { display: grid; place-items: center; }
-  canvas { display: block; image-rendering: pixelated; image-rendering: crisp-edges; cursor: none; outline: none; }
+  canvas { display: block; image-rendering: pixelated; image-rendering: crisp-edges; cursor: none; outline: none;
+           touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+  body { -webkit-tap-highlight-color: transparent; }
+  /* an invisible text box laid over the name and email boxes, so iPads show their keyboard */
+  #typer { position: fixed; opacity: 0.01; border: 0; padding: 0; margin: 0; background: transparent;
+           color: transparent; caret-color: transparent; font-size: 16px; display: none; }
 </style>
 </head>
 <body>
-<canvas id="game" tabindex="0" aria-label="HT Dash: press space to jump"></canvas>
+<canvas id="game" tabindex="0" aria-label="HT Dash: press space or tap to jump"></canvas>
+<input id="typer" type="text" autocomplete="off" autocorrect="off" spellcheck="false" aria-label="Type here">
 <script>
 window.EMBED = {
   "sprites/backdrop/canal_far.png": "data:image/png;base64,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",
@@ -167,9 +181,13 @@ const ctx = canvas.getContext("2d");
 let S = 1;                               // integer scale from 320x180 to the screen
 
 function resize() {
-  S = Math.max(1, Math.floor(Math.min(innerWidth / W, innerHeight / H)));
+  // draw at a whole-number scale (crisp pixels), then stretch to fill the screen exactly
+  const fit = Math.min(innerWidth / W, innerHeight / H);
+  S = Math.max(1, Math.ceil(fit));
   canvas.width = W * S;
   canvas.height = H * S;
+  canvas.style.width = Math.floor(W * fit) + "px";
+  canvas.style.height = Math.floor(H * fit) + "px";
 }
 addEventListener("resize", resize);
 resize();
@@ -384,6 +402,7 @@ async function connectBackup() {                     // Ctrl+Alt+B (needs the ke
   } catch { /* cancelled */ }
 }
 async function restoreBackup() {                     // on load: pick up last session's file if allowed
+  if (!window.showSaveFilePicker) { backupState = "unsupported"; return; }   // iPad, Safari, Firefox
   backupHandle = await recallHandle();
   if (!backupHandle) return;
   try {
@@ -542,7 +561,7 @@ function update() {
     distance = (distance || 0) + 1.5;   // backdrop keeps scrolling behind the menus
   }
   if (state === "board" && performance.now() - boardSince > 15000) { state = "title"; sel = 0; }
-  if (state === "name" && performance.now() - nameSince > NAME_TIMEOUT_MS) { state = "title"; sel = 0; obstacles = []; }
+  if (state === "name" && performance.now() - nameSince > NAME_TIMEOUT_MS) { state = "title"; sel = 0; obstacles = []; hideTyper(); }
   if (state === "crash" && performance.now() - crashAt > 900) {
     state = "name";
     obstacles = [];
@@ -802,7 +821,7 @@ function backupStatus() {
     on: [`Notepad backup on · ${n}${at ? " · saved " + at : ""}`, "#7fd18b"],
     reconnect: ["Notepad backup paused · choose it again to allow", "#ffb84d"],
     off: [`Notepad backup off · ${n}`, "#ffb84d"],
-    unsupported: ["Notepad backup needs Chrome or Edge", "#ff8a8a"],
+    unsupported: [`Notepad backup needs Chrome or Edge on a computer · ${n} saved here, export from settings`, "#ffb84d"],
     error: ["Notepad backup failed · choose the file again", "#ff8a8a"],
   }[backupState];
 }
@@ -885,11 +904,25 @@ function drawRingSelect() {
     }
   });
 
-  // controls
-  keycap(18, 134, 12, "<"); keycap(32, 134, 12, ">");
-  text("choose", 50, 139.5, 5.5, "#b8b3c4", "left");
-  keycap(18, 149, 30, "SPACE");
-  text("play", 54, 154.5, 5.5, c.colour, "left");
+  // controls: keys on a laptop, a PLAY button on an iPad
+  if (isTouch) {
+    text("Swipe or tap a face to choose", 18, 132, 5, "#b8b3c4", "left");
+    ctx.fillStyle = c.colour;
+    ctx.fillRect(PLAY_BTN.x, PLAY_BTN.y, PLAY_BTN.w, PLAY_BTN.h);
+    ctx.fillStyle = "rgba(14,12,20,0.25)";
+    ctx.fillRect(PLAY_BTN.x, PLAY_BTN.y + PLAY_BTN.h - 2, PLAY_BTN.w, 2);
+    textSans("PLAY", PLAY_BTN.x + PLAY_BTN.w / 2, PLAY_BTN.y + 9, 9, "#fff", "center");
+  } else {
+    keycap(18, 134, 12, "<"); keycap(32, 134, 12, ">");
+    text("choose", 50, 139.5, 5.5, "#b8b3c4", "left");
+    keycap(18, 149, 30, "SPACE");
+    text("play", 54, 154.5, 5.5, c.colour, "left");
+  }
+  if (logoHold) {                                          // staff holding the logo: fill a ring
+    const k = Math.min(1, (performance.now() - logoHold) / 3000);
+    ctx.beginPath(); ctx.arc(30, 28, 15.5, -Math.PI / 2, -Math.PI / 2 + k * Math.PI * 2);
+    ctx.strokeStyle = "#fff"; ctx.lineWidth = 1.5; ctx.stroke();
+  }
 
   // best score, small
   const top = loadScores()[0];
@@ -897,7 +930,7 @@ function drawRingSelect() {
 
   // staff status: is the Notepad backup working? (Ctrl+Alt+S opens settings)
   const status = backupStatus();
-  text(`${status[0]} · Ctrl+Alt+S settings`, W - 6, 174, 4, status[1], "right");
+  text(`${status[0]} · ${isTouch ? "hold the logo for settings" : "Ctrl+Alt+S settings"}`, W - 6, 174, 4, status[1], "right");
 
   // the wheel
   const cx = 228, cy = 88, R = 68;
@@ -910,11 +943,13 @@ function drawRingSelect() {
   ctx.beginPath(); ctx.ellipse(cx, cy + 30, 15, 2.5, 0, 0, Math.PI * 2);
   ctx.fillStyle = "rgba(255,255,255,0.08)"; ctx.fill();
   ctx.drawImage(idleFrame(c.id, 0), cx - 32, cy - 30, 64, 64);
+  facePos = [];
   CHARS.forEach((p, i) => {
     const a = (-90 + i * 60 - ringShown) * Math.PI / 180;
     const fx = Math.round(cx + R * 0.9 * Math.cos(a));
     const fy = Math.round(cy + R * 0.9 * Math.sin(a) + Math.sin(t / 18 + i * 1.7) * 1.5);   // each face bobs, out of step
     const chosen = i === sel;
+    facePos[i] = { x: fx, y: fy };                       // for tapping a face on an iPad
     ctx.beginPath(); ctx.arc(fx, fy, chosen ? 13 : 10.5, 0, Math.PI * 2);
     ctx.fillStyle = "#16141a"; ctx.fill();
     ctx.lineWidth = chosen ? 2 : 1;
@@ -1127,8 +1162,15 @@ function draw() {
     box("WORK EMAIL (never shown on screen)", emailText, 96, field === "email", "name@company.co.uk");
     if (emailError) text("That email doesn't look right. Check it and try again.", W / 2, 122, 6, "#ff8a8a");
     const ready = field === "name" ? nameText.trim() : emailText;
-    text(field === "name" ? "Press ENTER for the next box" : "Press ENTER to save", W / 2, 136, 7, ready ? "#fff" : "#8a8494");
-    text("We save your email on this laptop for HT Media only.", W / 2, 148, 5, "#8a8494");
+    if (isTouch) {                                         // iPad: tap the boxes to type, then SAVE
+      if (!nameText && !emailText) text("Tap a box to type", W / 2, 50.5, 5, "#ffe2b0");
+      ctx.fillStyle = nameText.trim() && emailText ? who().colour : "#5a5466";
+      ctx.fillRect(SAVE_BTN.x, SAVE_BTN.y, SAVE_BTN.w, SAVE_BTN.h);
+      textSans("SAVE", W / 2, SAVE_BTN.y + 7.5, 8, "#fff", "center");
+    } else {
+      text(field === "name" ? "Press ENTER for the next box" : "Press ENTER to save", W / 2, 136, 7, ready ? "#fff" : "#8a8494");
+    }
+    text(`We save your email on this ${isTouch ? "device" : "laptop"} for HT Media only.`, W / 2, 148, 5, "#8a8494");
     text("Say hello: info@ht-media.com", W / 2, 157, 6, who().colour);   // HT's contact email
   }
   if (state === "board") drawScoreSlate();
@@ -1136,6 +1178,18 @@ function draw() {
 }
 
 // ----------------------------------------------------------------- input
+// Save the name and email (keyboard Enter, the iPad keyboard's return key, or the SAVE button).
+function submitEntry() {
+  if (!EMAIL_OK.test(emailText)) { emailError = true; return; }
+  saveSubmission({ name: nameText.trim(), email: emailText, score, runner: who().id });
+  writeBackup();                                                // update the Notepad file too
+  boardRank = saveScore(nameText.trim(), score, who().id);     // the table only keeps the name
+  obstacles = [];
+  boardSince = performance.now();
+  state = "board";
+  hideTyper();
+}
+
 function pressStart() {
   if (state === "title") { newRun(); jumpHeld = false; }
   else if (state === "board") { sel = 0; state = "title"; }       // Dan is the default again
@@ -1171,6 +1225,14 @@ addEventListener("keydown", e => {
   }
   if (state === "name") {
     nameSince = performance.now();
+    if (e.target === typer) {                     // typing on the iPad keyboard: the box handles letters
+      if (e.key === "Enter" || e.key === "Tab") {
+        e.preventDefault();
+        if (field === "name" && nameText.trim()) focusTyper("email");
+        else if (field === "email") submitEntry();
+      }
+      return;
+    }
     if (field === "name") {
       if ((e.key === "Enter" || e.key === "Tab") && nameText.trim()) field = "email";
       else if (e.key === "Backspace") nameText = nameText.slice(0, -1);
@@ -1178,14 +1240,7 @@ addEventListener("keydown", e => {
     } else {
       emailError = false;
       if (e.key === "Enter") {
-        if (EMAIL_OK.test(emailText)) {
-          saveSubmission({ name: nameText.trim(), email: emailText, score, runner: who().id });
-          writeBackup();                                                // update the Notepad file too
-          boardRank = saveScore(nameText.trim(), score, who().id);   // the table only keeps the name
-          obstacles = [];
-          boardSince = performance.now();
-          state = "board";
-        } else emailError = true;
+        submitEntry();
       } else if (e.key === "Backspace") {
         if (emailText) emailText = emailText.slice(0, -1);
         else field = "name";                                          // back to the name box
@@ -1213,8 +1268,88 @@ addEventListener("keydown", e => {
 addEventListener("keyup", e => {
   if (e.key === " ") jumpHeld = false;
 });
-// The game is played with Space only. A click just gives the page keyboard focus.
-canvas.addEventListener("pointerdown", () => canvas.focus());
+// ----------------------------------------------------------------- touch (iPad) and mouse
+// Title: swipe or tap a face to choose, tap PLAY (or the runner) to start; hold the HT logo for
+// 3 seconds for settings. Playing: tap to jump, hold for a big jump. Game over: tap a box to type
+// on the iPad keyboard, tap SAVE. Scoreboard: tap to carry on. Settings: tap an option, tap outside to close.
+const typer = document.getElementById("typer");
+const isTouch = matchMedia("(pointer: coarse)").matches || "ontouchstart" in window;
+const NAME_BOX = { x: 74, y: 62, w: 172, h: 16 }, EMAIL_BOX = { x: 74, y: 96, w: 172, h: 16 };
+const SAVE_BTN = { x: 130, y: 126, w: 60, h: 15 }, PLAY_BTN = { x: 18, y: 138, w: 64, h: 18 };
+let facePos = [], downAt = null, logoHold = null;
+const inBox = (p, b) => p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b.y + b.h;
+
+function toGame(e) {
+  const r = canvas.getBoundingClientRect();
+  return { x: (e.clientX - r.left) / r.width * W, y: (e.clientY - r.top) / r.height * H };
+}
+
+function placeTyper(box) {                        // lay the invisible text box over the drawn one
+  const r = canvas.getBoundingClientRect(), k = r.width / W;
+  Object.assign(typer.style, { display: "block", left: r.left + box.x * k + "px", top: r.top + box.y * k + "px",
+    width: box.w * k + "px", height: box.h * k + "px" });
+}
+function focusTyper(which) {
+  field = which;
+  typer.value = which === "name" ? nameText : emailText;
+  typer.inputMode = which === "email" ? "email" : "text";
+  typer.type = which === "email" ? "email" : "text";
+  typer.setAttribute("autocapitalize", which === "name" ? "characters" : "none");
+  typer.setAttribute("enterkeyhint", which === "name" ? "next" : "done");
+  placeTyper(which === "name" ? NAME_BOX : EMAIL_BOX);
+  typer.focus();
+}
+function hideTyper() { typer.blur(); typer.style.display = "none"; }
+typer.addEventListener("input", () => {
+  nameSince = performance.now();
+  if (field === "name") {
+    nameText = typer.value.toUpperCase().replace(/[^A-Z0-9 .'-]/g, "").slice(0, MAX_NAME);
+    typer.value = nameText;
+  } else {
+    emailError = false;
+    emailText = typer.value.toLowerCase().replace(/[^a-z0-9@._+'-]/g, "").slice(0, MAX_EMAIL);
+  }
+});
+
+canvas.addEventListener("pointerdown", e => {
+  canvas.focus();
+  const p = toGame(e);
+  downAt = p;
+  if (state === "play") { e.preventDefault(); pressStart(); return; }
+  if (state === "title" && Math.hypot(p.x - 30, p.y - 28) < 15) logoHold = performance.now();   // staff: hold the logo
+});
+addEventListener("pointerup", e => {
+  jumpHeld = false;
+  const p = downAt ? toGame(e) : null;
+  const start = downAt;
+  downAt = null;
+  if (logoHold) {
+    const held = performance.now() - logoHold;
+    logoHold = null;
+    if (held >= 3000) { state = "settings"; settingsSel = 0; confirmReset = false; return; }
+  }
+  if (!p || e.target !== canvas) return;
+  if (state === "title") {
+    if (Math.abs(p.x - start.x) > 25) {                         // swipe to turn the wheel
+      sel = (sel + (p.x < start.x ? 1 : CHARS.length - 1)) % CHARS.length;
+      return;
+    }
+    const face = facePos.findIndex(f => Math.hypot(p.x - f.x, p.y - f.y) < 13);
+    if (face >= 0) { sel = face; return; }
+    if (inBox(p, PLAY_BTN) || Math.hypot(p.x - 228, p.y - 88) < 36) { newRun(); jumpHeld = false; }
+  } else if (state === "board") {
+    pressStart();
+  } else if (state === "name") {
+    if (inBox(p, NAME_BOX)) focusTyper("name");
+    else if (inBox(p, EMAIL_BOX)) focusTyper("email");
+    else if (inBox(p, SAVE_BTN)) { if (!nameText.trim()) focusTyper("name"); else submitEntry(); }
+  } else if (state === "settings") {
+    const row = SETTINGS.findIndex((_, i) => p.x >= 48 && p.x <= 272 && p.y >= 48 + i * 22 && p.y <= 66 + i * 22);
+    if (row >= 0) { settingsSel = row; SETTINGS[row].run(); }
+    else if (p.x < 40 || p.x > 280 || p.y < 18 || p.y > 162) { state = "title"; confirmReset = false; }
+  }
+});
+addEventListener("resize", () => { if (typer.style.display === "block") placeTyper(field === "name" ? NAME_BOX : EMAIL_BOX); });
 
 // ----------------------------------------------------------------- main loop
 // Fixed 60 updates a second, whatever the screen's refresh rate.
@@ -1228,6 +1363,10 @@ function frame(now) {
 }
 
 restoreBackup();
+navigator.storage?.persist?.();                    // ask the browser to keep saved entries
+if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
+  navigator.serviceWorker.register("sw.js").catch(() => {});   // works offline once loaded (when hosted)
+}
 loadAll().then(() => {
   distance = 0; score = 0; obstacles = [];
   requestAnimationFrame(frame);
