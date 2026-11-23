@@ -60,8 +60,11 @@ const ASSETS = {
   sheep_1: "sprites/obstacles/sheep_1.png",
   cow_0: "sprites/obstacles/cow_0.png",
   cow_1: "sprites/obstacles/cow_1.png",
+  bollard: "sprites/obstacles/bollard.png",
+  container: "sprites/obstacles/container.png",
+  port_mid: "sprites/backdrop/port_mid.png",
+  port_ground: "sprites/backdrop/port_ground.png",
   pie: "sprites/landmarks/pie.png",
-  ht_logo: "sprites/ui/ht_logo.png",
   seagull_0: "sprites/obstacles/seagull_0.png",
   seagull_1: "sprites/obstacles/seagull_1.png",
   drone_0: "sprites/obstacles/drone_0.png",
@@ -74,12 +77,13 @@ const ASSETS = {
 };
 // The HT team. Dan is the default runner; the arrow keys on the title screen pick someone else.
 const CHARS = [
-  { id: "dan",   name: "DAN",   role: "Managing Director" },
-  { id: "dave",  name: "DAVE",  role: "Production Director" },
-  { id: "mark",  name: "MARK",  role: "Creative Director" },
-  { id: "beth",  name: "BETH",  role: "Operations & Creative Coordinator" },
-  { id: "sam",   name: "SAM",   role: "Editor" },
-  { id: "jonas", name: "JONAS", role: "Creative Producer" },
+  // each runner has their own colour from the HT logo ring
+  { id: "dan",   name: "DAN",   role: "Managing Director",                 colour: "#d97e30" },
+  { id: "dave",  name: "DAVE",  role: "Production Director",               colour: "#66bfad" },
+  { id: "mark",  name: "MARK",  role: "Creative Director",                 colour: "#9dbc3e" },
+  { id: "beth",  name: "BETH",  role: "Operations & Creative Coordinator", colour: "#b85895" },
+  { id: "sam",   name: "SAM",   role: "Editor",                            colour: "#138aa8" },
+  { id: "jonas", name: "JONAS", role: "Creative Producer",                 colour: "#e1a22e" },
 ];
 let sel = 0;                      // which runner is chosen
 const who = () => CHARS[sel];
@@ -92,6 +96,7 @@ for (const c of CHARS) {
 for (let i = 0; i < 4; i++) {
   ASSETS["far_" + i] = `sprites/backdrop/hills_far_${i}.png`;
   ASSETS["mid_" + i] = `sprites/backdrop/hills_mid_${i}.png`;
+  ASSETS["port_far_" + i] = `sprites/backdrop/port_far_${i}.png`;
 }
 function loadAll() {
   return Promise.all(Object.entries(ASSETS).map(([k, src]) => new Promise((ok, fail) => {
@@ -106,9 +111,12 @@ function loadAll() {
 const OBSTACLES = [
   { name: "tripod",               frames: ["tripod"],               weight: 3, from: 0 },
   { name: "flight_case",          frames: ["flight_case"],          weight: 3, from: 0 },
-  { name: "sheep",                frames: ["sheep_0", "sheep_1"],   weight: 3, from: 0,   walk: 0.4 },
+  { name: "sheep",                frames: ["sheep_0", "sheep_1"],   weight: 3, from: 0,   walk: 0.4, zone: "country" },
   { name: "flight_cases_stacked", frames: ["flight_cases_stacked"], weight: 2, from: 10 },
-  { name: "cow",                  frames: ["cow_0", "cow_1"],       weight: 2, from: 8, walk: 0.25 },
+  { name: "cow",                  frames: ["cow_0", "cow_1"],       weight: 2, from: 8, walk: 0.25, zone: "country" },
+  // on the quayside (after 15 seconds)
+  { name: "bollard",              frames: ["bollard"],              weight: 3, from: 15, zone: "port" },
+  { name: "container",            frames: ["container"],            weight: 2, from: 17, zone: "port" },
   { name: "roadblock",            frames: ["roadblock_0", "roadblock_1"], weight: 2, from: 20, blink: 24 },
   // seagulls fly towards Dan: low ones at chest height (jump over them),
   // high ones at jump height (don't jump, or just tap for a small hop)
@@ -186,6 +194,13 @@ let take = 1;                      // today's take number, shown on the high sco
 //   0-15s gentle, ground only | 15s seagulls | 25s close pairs, fewer pies
 //   40s no more pies | 50s+ speed keeps climbing past what people can react to
 function secs() { return runTime / 60; }
+// The world: countryside for the first 15 seconds, then the port slides in from the right.
+const PORT_AT = 15;
+function inZone(o) { return !o.zone || (o.zone === "port") === (secs() >= PORT_AT); }
+function portMix() {
+  if (state === "title") return 0;
+  return Math.max(0, Math.min(1, (secs() - PORT_AT) / 2.5));
+}
 function difficulty() { return Math.min(1, secs() / 50); }
 let pies = [], pieGap = 0, power = 0, pieFlash = 0;
 const POWER_FRAMES = 600;        // pie power lasts 10 seconds
@@ -215,7 +230,7 @@ function jump() {
 }
 
 function spawn() {
-  const pool = OBSTACLES.filter(o => secs() >= o.from);
+  const pool = OBSTACLES.filter(o => secs() >= o.from && inZone(o));
   let r = Math.random() * pool.reduce((s, o) => s + o.weight, 0);
   let kind = pool.find(o => (r -= o.weight) < 0) || pool[0];
   // a high seagull never arrives on top of a ground obstacle: you couldn't hop under it and over that
@@ -231,7 +246,7 @@ function spawn() {
   // from 25 seconds, sometimes a second ground obstacle follows close behind:
   // clear both with one long, held jump
   if (secs() > 25 && !kind.air && Math.random() < 0.15 + 0.25 * difficulty()) {
-    const twin = OBSTACLES.filter(o => !o.air && o.name !== "roadblock" && secs() >= o.from);
+    const twin = OBSTACLES.filter(o => !o.air && o.name !== "roadblock" && secs() >= o.from && inZone(o));
     const k2 = twin[Math.floor(Math.random() * twin.length)];
     const im2 = IMG[k2.frames[0]];
     obstacles.push({ kind: k2, x: W + 4 + im.width + 18 + speed * 4, y: GROUND_Y - im2.height + 1, w: im2.width, h: im2.height });
@@ -360,6 +375,15 @@ function tileLayer(img, offset) {
   ctx.drawImage(img, W - o, 0);
 }
 
+// Countryside on the left of the edge, port on the right; the edge sweeps across as `mix` goes 0 to 1.
+function zoneLayer(country, port, offset, mix) {
+  if (mix <= 0) return tileLayer(country, offset);
+  if (mix >= 1) return tileLayer(port, offset);
+  const edge = Math.round(W * (1 - mix));
+  ctx.save(); ctx.beginPath(); ctx.rect(0, 0, edge, H); ctx.clip(); tileLayer(country, offset); ctx.restore();
+  ctx.save(); ctx.beginPath(); ctx.rect(edge, 0, W - edge, H); ctx.clip(); tileLayer(port, offset); ctx.restore();
+}
+
 function text(str, x, y, size, colour = "#fff", align = "center") {
   ctx.font = `bold ${size}px ui-monospace, "Cascadia Mono", Consolas, "Courier New", monospace`;
   ctx.textAlign = align;
@@ -370,28 +394,79 @@ function text(str, x, y, size, colour = "#fff", align = "center") {
   ctx.fillText(str, x, y);
 }
 
+const HT_COLOURS = ["#765443", "#c49782", "#657da0", "#566f41", "#8883b5", "#66bfad",
+  "#d97e30", "#4f5ba9", "#c45b66", "#603b6a", "#9dbc3e", "#e1a22e",
+  "#383d97", "#47984a", "#b2383e", "#e5c41f", "#b85895", "#138aa8"];   // clockwise round the logo
+
 function panel(x, y, w, h) {
   ctx.fillStyle = "rgba(18,14,23,0.82)";
   ctx.fillRect(x, y, w, h);
-  ctx.strokeStyle = "#f29a4a";
-  ctx.lineWidth = 1;
-  ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+  ringBorder(x, y, w, h);
 }
 
-// A golden silhouette of a Dan frame, used for the pie-power glow (made once per frame image).
+// A border made of the HT logo's colour segments, running round the panel.
+function ringBorder(x, y, w, h) {
+  let i = 0;
+  const seg = (sx, sy, sw, sh) => { ctx.fillStyle = HT_COLOURS[i++ % 18]; ctx.fillRect(sx, sy, sw, sh); };
+  for (let px = x; px < x + w; px += 7) seg(px, y, Math.min(6, x + w - px), 2);
+  for (let py = y + 2; py < y + h; py += 7) seg(x + w - 2, py, 2, Math.min(6, y + h - py));
+  for (let px = x + w - 2; px > x; px -= 7) seg(Math.max(x, px - 6), y + h - 2, Math.min(6, px - x), 2);
+  for (let py = y + h - 2; py > y + 2; py -= 7) seg(x, Math.max(y + 2, py - 6), 2, Math.min(6, py - y - 2));
+}
+
+// The HT logo, drawn smoothly (not pixelated): coloured ring, grey ring, "ht" in the middle.
+function drawHTLogo(cx, cy, R) {
+  const sector = (r0, r1, a0, a1, colour) => {
+    ctx.beginPath();
+    ctx.arc(cx, cy, r1, a0, a1);
+    ctx.arc(cx, cy, r0, a1, a0, true);
+    ctx.closePath();
+    ctx.fillStyle = colour;
+    ctx.fill();
+  };
+  ctx.beginPath(); ctx.arc(cx, cy, R + 0.6, 0, Math.PI * 2);
+  ctx.fillStyle = "rgba(255,255,255,0.9)"; ctx.fill();
+  for (let k = 0; k < 36; k++) {
+    const a0 = (-90 + k * 10 + 0.9) * Math.PI / 180, a1 = (-90 + k * 10 + 9.1) * Math.PI / 180;
+    sector(R * 0.8, R, a0, a1, HT_COLOURS[(k >> 1) % 18]);
+    const inner = k < 18 ? ["#5b5b5d", "#77777a"][k % 2] : ["#cfd0d2", "#e6e7e8"][k % 2];
+    sector(R * 0.6, R * 0.74, a0 + 0.02, a1 - 0.02, inner);
+  }
+  ctx.beginPath(); ctx.arc(cx, cy, R * 0.56, 0, Math.PI * 2);
+  ctx.fillStyle = "#16141a"; ctx.fill();
+  ctx.font = `bold ${R * 0.62}px "Segoe UI", "Helvetica Neue", Arial, sans-serif`;
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.fillStyle = "#fff";
+  ctx.fillText("ht", cx, cy + R * 0.02);
+}
+
+// Pie power timer as a mini HT ring: segments switch off as the power runs out.
+function drawRingTimer(cx, cy, R, frac) {
+  const lit = Math.ceil(36 * frac);
+  for (let k = 0; k < 36; k++) {
+    ctx.beginPath();
+    ctx.arc(cx, cy, R, (-90 + k * 10 + 1.2) * Math.PI / 180, (-90 + k * 10 + 8.8) * Math.PI / 180);
+    ctx.strokeStyle = k < lit ? HT_COLOURS[(k >> 1) % 18] : "rgba(255,255,255,0.18)";
+    ctx.lineWidth = 3;
+    ctx.stroke();
+  }
+}
+
+// A coloured silhouette of a sprite, used for glows (made once per image and colour).
 const glowCache = new Map();
-function glowOf(img) {
-  if (!glowCache.has(img)) {
+function glowOf(img, colour = "#ffd98a") {
+  const key = img.src + colour;
+  if (!glowCache.has(key)) {
     const c = document.createElement("canvas");
     c.width = img.width; c.height = img.height;
     const g = c.getContext("2d");
     g.drawImage(img, 0, 0);
     g.globalCompositeOperation = "source-in";
-    g.fillStyle = "#ffd98a";
+    g.fillStyle = colour;
     g.fillRect(0, 0, c.width, c.height);
-    glowCache.set(img, c);
+    glowCache.set(key, c);
   }
-  return glowCache.get(img);
+  return glowCache.get(key);
 }
 
 // Title screen: the whole team stands on the grass; the chosen runner jogs on the spot and glows.
@@ -415,12 +490,12 @@ function drawLineup() {
     if (chosen) {
       for (const [ring, alpha] of [[2, 0.3], [1, 0.75]]) {   // stronger, two-step glow
         ctx.globalAlpha = alpha * (0.8 + 0.2 * Math.sin(t / 8));
-        const glow = glowOf(img);
+        const glow = glowOf(img, c.colour);
         for (const [gx, gy] of [[-ring, 0], [ring, 0], [0, -ring], [0, ring]]) ctx.drawImage(glow, x + gx, y + gy);
       }
       ctx.globalAlpha = 1;
       const bounce = Math.round(Math.sin(t / 6) * 2);       // bigger arrow, bobbing over their head
-      ctx.fillStyle = "#f29a4a";
+      ctx.fillStyle = c.colour;
       for (let k = 0; k < 6; k++) ctx.fillRect(cx - 6 + k, y - 13 + k + bounce, 12 - 2 * k, 1);
     }
     ctx.drawImage(img, x, y);
@@ -428,10 +503,10 @@ function drawLineup() {
     ctx.fillStyle = chosen ? "rgba(18,14,23,0.85)" : "rgba(18,14,23,0.6)";
     ctx.fillRect(cx - 24, 151, 48, 28);
     if (chosen) {                                         // orange border all the way round
-      ctx.strokeStyle = "#f29a4a"; ctx.lineWidth = 1;
+      ctx.strokeStyle = c.colour; ctx.lineWidth = 1;
       ctx.strokeRect(cx - 23.5, 151.5, 47, 27);
     }
-    text(c.name, cx, 157, 7, chosen ? "#f29a4a" : "#fff");
+    text(c.name, cx, 157, 7, chosen ? c.colour : "#fff");
     wrap(c.role, 12).forEach((line, j) => text(line, cx, 165 + j * 5, 4.3, "#ffe2b0"));
   });
 }
@@ -454,9 +529,10 @@ function drawWorld() {
   // the small white plane crosses the sky every so often
   const px = (t * 0.35) % (W + 600) - 40;
   if (px < W + 10) ctx.drawImage(IMG.plane, Math.round(px), Math.round(38 + Math.sin(t / 40) * 2));
-  tileLayer(IMG["far_" + turbine], distance * 0.1);
-  tileLayer(IMG["mid_" + turbine], distance * 0.3);
-  tileLayer(IMG.ground, distance);
+  const mix = portMix();
+  zoneLayer(IMG["far_" + turbine], IMG["port_far_" + turbine], distance * 0.1, mix);
+  zoneLayer(IMG["mid_" + turbine], IMG.port_mid, distance * 0.3, mix);
+  zoneLayer(IMG.ground, IMG.port_ground, distance, mix);
 
   for (const w of wind) {
     ctx.fillStyle = `rgba(255,255,255,${w.a.toFixed(3)})`;
@@ -468,6 +544,15 @@ function drawWorld() {
   for (const o of obstacles || []) {
     const f = o.kind.frames;
     const im = IMG[f[Math.floor(t / (o.kind.blink || o.kind.spin || 10)) % f.length]];
+    if (o.kind.air !== undefined) {
+      // flying things glow so they stand out against the sky
+      const glow = glowOf(im, "#fff3b0");
+      for (const [ring, alpha] of [[2, 0.3], [1, 0.75]]) {
+        ctx.globalAlpha = alpha * (0.8 + 0.2 * Math.sin(t / 6));
+        for (const [gx, gy] of [[-ring, 0], [ring, 0], [0, -ring], [0, ring]]) ctx.drawImage(glow, Math.round(o.x) + gx, o.y + gy);
+      }
+      ctx.globalAlpha = 1;
+    }
     ctx.drawImage(im, Math.round(o.x), o.y);
   }
 
@@ -501,13 +586,13 @@ function drawWorld() {
 
 function drawHud() {
   if (power > 0) {
-    // pie power timer, top left
-    // pie power timer, top centre (clear of the drone and the score)
-    ctx.drawImage(IMG.pie, W / 2 - 38, 4);
-    ctx.fillStyle = "rgba(18,14,23,0.8)";
-    ctx.fillRect(W / 2 - 18, 9, 52, 7);
-    ctx.fillStyle = power < 120 && Math.floor(t / 8) % 2 ? "#fff" : "#e8a24a";
-    ctx.fillRect(W / 2 - 17, 10, Math.ceil(50 * power / POWER_FRAMES), 5);
+    // pie power timer, top centre: a mini HT ring whose segments switch off as it runs out
+    if (power > 120 || Math.floor(t / 8) % 2) {
+      ctx.beginPath(); ctx.arc(W / 2, 17, 13, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(18,14,23,0.75)"; ctx.fill();
+      drawRingTimer(W / 2, 17, 11, power / POWER_FRAMES);
+      ctx.drawImage(IMG.pie, W / 2 - 9, 10);
+    }
   }
   if (pieFlash > 0) text("PIE POWER! SUPER JUMP!", W / 2, 50, 10, "#ffd98a");
   text(`SCORE ${String(score).padStart(5, "0")}`, W - 6, 10, 8, "#fff", "right");
@@ -585,10 +670,12 @@ function drawTable(x, y, highlight) {
   }
   list.forEach((e, i) => {
     const row = y + i * 9;
-    const colour = i === highlight ? "#f29a4a" : "#fff";
-    text(`${String(i + 1).padStart(2, " ")}.`, x, row, 7, colour, "right");
+    const runner = CHARS.find(c => c.id === e.runner);
+    const colour = runner ? runner.colour : "#fff";          // each name in their runner's colour
+    const mine = i === highlight;
+    text(`${String(i + 1).padStart(2, " ")}.`, x, row, 7, mine ? "#fff" : "#b8b3c4", "right");
     text(e.name, x + 6, row, 7, colour, "left");
-    text(String(e.score), x + 120, row, 7, colour, "right");
+    text(String(e.score) + (mine ? " <" : ""), x + 120 + (mine ? 9 : 0), row, 7, mine ? "#fff" : "#b8b3c4", "right");
   });
 }
 
@@ -605,7 +692,7 @@ function draw() {
 
   if (state === "title") {
     panel(70, 6, 180, 52);
-    text("HT DASH", W / 2, 19, 16, "#f29a4a");
+    text("HT DASH", W / 2, 19, 16, "#fff");
     text("an HT Media game", W / 2, 32, 7, "#ffe2b0");
     const top = loadScores()[0];
     text(top ? `BEST: ${top.name} ${top.score}` : "No scores yet. Be the first!", W / 2, 46, 7, "#fff");
@@ -615,12 +702,12 @@ function draw() {
 
   if (state === "name") {
     panel(50, 14, 220, 150);
-    text("GAME OVER", W / 2, 28, 14, "#f29a4a");
+    text("GAME OVER", W / 2, 28, 14, who().colour);
     text(`You scored ${score}`, W / 2, 43, 9, "#fff");
     const cursor = Math.floor(t / 20) % 2 === 0 ? "_" : " ";
     const box = (label, value, y, active, hint) => {
       text(label, 76, y - 7, 6, active ? "#ffe2b0" : "#8a8494", "left");
-      ctx.fillStyle = active ? "#f29a4a" : "#5a5466";
+      ctx.fillStyle = active ? who().colour : "#5a5466";
       ctx.fillRect(74, y, 172, 16);
       ctx.fillStyle = "#120e17";
       ctx.fillRect(75, y + 1, 170, 14);
@@ -635,7 +722,7 @@ function draw() {
     text("We save your email on this laptop for HT Media only.", W / 2, 152, 5, "#8a8494");
   }
   if (state === "board") drawScoreSlate();
-  ctx.drawImage(IMG.ht_logo, 4, 4);                       // HT logo, top left, on every screen
+  drawHTLogo(19, 19, 15);                                 // HT logo, top left, on every screen
 }
 
 // ----------------------------------------------------------------- input

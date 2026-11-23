@@ -30,4 +30,7 @@ Format: `- **G-###** (seen n) Rule. *(source · DD/MM/YYYY)*`
 - **G-012** (seen 1) Runners and roles: Dan, Managing Director (default); Dave, Production Director; Mark, Creative Director; Beth, Operations & Creative Coordinator; Sam, Editor; Jonas, Creative Producer. *(HT · 20/11/2026, Dave added 23/11/2026)*
 - **G-013** (seen 1) Characters stay flat 2D in the game; the 3D spin was tried and dropped. *("Go back to simple 2D Dan" · 23/11/2026)*
 - **G-014** (seen 1) Jonas has no goatee. *("Remove the goatee from Jonas" · 23/11/2026)*
-- **G-015** (seen 1) The HT logo sits top left on every screen. *(HT · 23/11/2026)*
+- **G-015** (seen 1) The HT logo sits top left on every screen, drawn smoothly, never pixelated. *(HT · 23/11/2026, "make the HT logo full, don't pixelate it")*
+- **G-016** (seen 1) Use HT's logo-ring colours rather than invented accents: a colour per runner, ring-segment borders, the ring-style pie timer. *(HT picked ideas 1, 2 and 4 · 23/11/2026)*
+- **G-017** (seen 1) After 15 seconds the world changes to a port with big ships and an offshore wind farm. *(HT · 23/11/2026)*
+- **G-018** (seen 1) Flying obstacles glow so they're easy to see. *(HT · 23/11/2026)*

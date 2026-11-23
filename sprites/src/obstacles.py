@@ -146,6 +146,28 @@ def roadblock(frame):
     return s.image()
 
 
+def bollard():
+    """Mooring bollard on the quayside: low, black iron, yellow band."""
+    s = Sprite(16, 13)
+    s.rect(2, 1, 13, 3, "g"); s.rect(2, 1, 13, 1, "G")    # cap
+    s.rect(4, 4, 11, 11, "a"); s.rect(4, 4, 5, 11, "g")   # post, lit edge
+    s.rect(4, 7, 11, 8, "q")                              # yellow band
+    s.rect(2, 11, 13, 12, "a")                            # base plate
+    return s.image()
+
+
+def container():
+    """Shipping container: a big jump. Corrugated red with an HT stencil."""
+    s = Sprite(34, 22)
+    s.rect(1, 1, 32, 20, "r")
+    for x in range(3, 32, 3):
+        s.rect(x, 3, x, 18, "P")                          # corrugation
+    s.rect(1, 1, 32, 1, "H"); s.rect(1, 20, 32, 20, "g")  # top lit, bottom shade
+    s.rect(1, 1, 2, 20, "h"); s.rect(31, 1, 32, 20, "G")  # corner posts
+    s.rows(8, 13, ["W.W.WWW", "WWW..W.", "W.W..W.", "W.W..W."])
+    return s.image()
+
+
 def sheep(frame):
     s = Sprite(22, 17)
     # legs first (behind the wool); the pairs swap between frames
@@ -216,6 +238,8 @@ SPRITES = {
     "sheep": [sheep(0), sheep(1)],
     "cow": [cow(0), cow(1)],
     "seagull": [seagull(0), seagull(1)],
+    "bollard": [bollard()],
+    "container": [container()],
 }
 
 

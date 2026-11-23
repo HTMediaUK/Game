@@ -51,13 +51,21 @@ Every run gets harder with time, so nobody plays for much more than a minute:
 |---|---|
 | Start | Tripods, flight cases and sheep at a gentle pace |
 | 8 to 20 seconds | Cows, stacked cases and the roadworks barrier join in |
+| 15 seconds | The world slides from the countryside into a port: container ship, dockside crane, tug and an offshore wind farm. Sheep and cows give way to mooring bollards and shipping containers |
 | 15 to 18 seconds | Low seagulls and drones: jump over them (drones bob up and down) |
 | 22 to 28 seconds | High seagulls and drones: don't jump, or just tap for a small hop underneath |
 | 25 seconds | Pairs of obstacles close together: one long, held jump clears both |
 | 40 seconds | No more pies |
 | 50 seconds | The speed keeps climbing until you crash |
 
-Faint wind streaks start rushing past as the speed picks up.
+Faint wind streaks start rushing past as the speed picks up. Seagulls and drones glow so they're easy to spot.
+
+## HT colours
+
+- The HT logo sits top left on every screen, drawn smoothly rather than as pixels.
+- Each runner has their own colour from the logo ring: Dan orange, Dave mint, Mark lime, Beth magenta, Sam teal, Jonas mustard. It's used for their glow and label on the select screen, the game over card, and their name on the high scores.
+- Panels have a border made of the logo's colour segments.
+- The pie power timer is a mini HT ring whose segments switch off as the power runs out.
 
 The speed rises the whole time and the gaps between obstacles shrink.
 
@@ -91,7 +99,8 @@ The top 10 are saved in Chrome on that laptop, so they survive closing the game 
 | Path | What it is |
 |---|---|
 | `index.html` | The whole game |
-| `sprites/ui/` | The HT logo as pixel art, shown top left on every screen (`sprites/src/ht_logo.py`) |
+| `sprites/ui/` | Pixel versions of the HT logo, used in the mockups (the game draws the logo smoothly in code) |
+| `sprites/src/port.py` | Draws the port: sea, wind farm, container ship, crane, tug and quayside |
 | `sprites/mockups/` | Ideas not in the game: Dan's 3D spin, three select screen designs |
 | `dist/HT-Dash.html` | The same game packed into one file to send to people |
 | `tools/build_single_file.py` | Rebuilds `dist/HT-Dash.html` |
