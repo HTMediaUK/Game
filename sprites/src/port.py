@@ -75,6 +75,71 @@ def water(img, xs):
             img.putpixel((x, WATER + 6 + (x // 9) % 4 * 4), hexc("#5d9ac6"))
 
 
+def draw_crane(img):
+    """Ship-to-shore container crane, side on: two braced legs on bogies, a box
+    girder out over the ship with a backreach behind, an A-frame tower with stay
+    cables, a machinery house, and a trolley with cab, hoist ropes and spreader."""
+    red, red_d, white = hexc("#c23b33"), hexc("#8e2a22"), hexc("#eef1f6")
+    steel, cable, yellow = hexc("#3a3d4e"), hexc("#4a4e5e"), hexc("#e5c41f")
+    sea_leg, land_leg = 218, 252                          # leg x positions (3px wide)
+    girder_y = 64                                         # top of the main girder
+    tip, back = 132, 284                                  # boom tip over the ship, end of the backreach
+    # legs, lit on the left, with white bands
+    for lx in (sea_leg, land_leg):
+        rect(img, lx, girder_y + 5, lx + 2, GROUND_Y - 5, red)
+        rect(img, lx + 2, girder_y + 5, lx + 2, GROUND_Y - 5, red_d)
+        for y in range(girder_y + 14, GROUND_Y - 8, 18):
+            rect(img, lx, y, lx + 2, y + 1, white)
+        rect(img, lx - 3, GROUND_Y - 4, lx + 5, GROUND_Y - 1, steel)     # bogie
+        for wx in (lx - 2, lx + 1, lx + 4):
+            img.putpixel((wx, GROUND_Y - 1), hexc("#1c1a22"))            # wheels
+    # portal beams and cross bracing between the legs
+    for by in (girder_y + 34, GROUND_Y - 22):
+        rect(img, sea_leg, by, land_leg + 2, by + 2, red)
+        rect(img, sea_leg, by + 2, land_leg + 2, by + 2, red_d)
+    bd.line(img, sea_leg + 3, girder_y + 6, land_leg - 1, girder_y + 33, red_d)
+    bd.line(img, land_leg - 1, girder_y + 6, sea_leg + 3, girder_y + 33, red_d)
+    # main girder: boom out over the water, backreach behind, with a truss pattern
+    rect(img, tip, girder_y, back, girder_y + 4, red)
+    rect(img, tip, girder_y, back, girder_y, hexc("#e0584e"))
+    rect(img, tip, girder_y + 4, back, girder_y + 4, red_d)
+    for x in range(tip + 2, back - 2, 6):
+        bd.line(img, x, girder_y + 1, x + 3, girder_y + 3, red_d)
+        bd.line(img, x + 3, girder_y + 3, x + 6, girder_y + 1, red_d)
+    rect(img, tip - 2, girder_y - 1, tip, girder_y + 5, red_d)           # boom tip
+    # A-frame tower above the legs, stays to the boom tip, mid-boom and backreach
+    apex = (236, girder_y - 28)
+    bd.line(img, sea_leg + 1, girder_y, apex[0] - 1, apex[1], red)
+    bd.line(img, sea_leg + 2, girder_y, apex[0], apex[1], red)
+    bd.line(img, land_leg + 1, girder_y, apex[0] + 1, apex[1], red_d)
+    rect(img, apex[0] - 2, apex[1] - 2, apex[0] + 2, apex[1] + 1, red)
+    for target in ((tip, girder_y), (182, girder_y)):
+        bd.line(img, apex[0], apex[1], target[0], target[1], cable)
+    bd.line(img, apex[0], apex[1], back - 2, girder_y, cable)
+    # machinery house on the backreach
+    rect(img, 260, girder_y - 9, 282, girder_y - 1, white)
+    rect(img, 260, girder_y - 9, 282, girder_y - 9, hexc("#c8d0dc"))
+    for wx in (263, 269, 275):
+        rect(img, wx, girder_y - 6, wx + 3, girder_y - 5, hexc("#5f93b8"))
+    # trolley with the driver's cab, hoist ropes, spreader and a container on the hook
+    tx = 146
+    rect(img, tx, girder_y + 5, tx + 10, girder_y + 7, steel)
+    rect(img, tx + 1, girder_y + 8, tx + 7, girder_y + 13, white)
+    rect(img, tx + 2, girder_y + 9, tx + 6, girder_y + 11, hexc("#5f93b8"))
+    for rx in (tx + 2, tx + 8):
+        rect(img, rx, girder_y + 8, rx, 84, cable)
+    rect(img, tx - 1, 85, tx + 11, 86, yellow)
+    rect(img, tx - 1, 87, tx + 11, 91, HT[17])
+    rect(img, tx - 1, 91, tx + 11, 91, tuple(int(v * 0.7) for v in HT[17][:3]) + (255,))
+
+
+def draw_tug(img):
+    rect(img, 282, 122, 308, 127, hexc("#b2383e"))
+    rect(img, 286, 116, 298, 121, hexc("#eef1f6"))
+    rect(img, 288, 118, 296, 118, hexc("#5f93b8"))
+    rect(img, 293, 111, 295, 115, hexc("#2c2a34"))
+
+
 def port_mid():
     img = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     water(img, range(W))
@@ -105,28 +170,8 @@ def port_mid():
     rect(img, 180, 76, 188, 85, hexc("#2c2a34"))
     for i in range(3):
         rect(img, 180, 78 + i * 2, 188, 78 + i * 2, HT[(i * 6 + 6) % 18])
-    # dockside crane (ship to shore): two legs, a long boom out over the ship
-    red, white = hexc("#b2383e"), hexc("#eef1f6")
-    for lx in (226, 246):
-        rect(img, lx, 66, lx + 2, GROUND_Y + 2, red)
-        for y in range(70, GROUND_Y, 12):
-            rect(img, lx, y, lx + 2, y + 1, white)
-    rect(img, 226, 92, 248, 94, red)                       # cross beam
-    rect(img, 150, 64, 272, 66, white)                     # boom
-    rect(img, 266, 58, 274, 66, red)                       # machinery house
-    for i in range(6):
-        img.putpixel((236 + i % 2, 46 + i * 3), red)
-    rect(img, 236, 46, 237, 63, red)                       # apex
-    bd.line(img, 237, 46, 150, 64, red)                    # stays
-    bd.line(img, 237, 46, 272, 63, red)
-    rect(img, 116, 67, 122, 70, hexc("#2c2a34"))           # trolley, cable and spreader over the containers
-    rect(img, 118, 71, 119, 84, hexc("#2c2a34"))
-    rect(img, 113, 85, 124, 86, hexc("#e5c41f"))
-    # tug boat
-    rect(img, 282, 122, 308, 127, hexc("#b2383e"))
-    rect(img, 286, 116, 298, 121, hexc("#eef1f6"))
-    rect(img, 288, 118, 296, 118, hexc("#5f93b8"))
-    rect(img, 293, 111, 295, 115, hexc("#2c2a34"))
+    draw_crane(img)
+    draw_tug(img)
     return img
 
 
@@ -187,10 +232,10 @@ def trans_far(frame):
 
 def trans_mid(frame):
     country = Image.open(OUT / f"hills_mid_{frame}.png").convert("RGBA")
-    port = port_mid()
     base = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-    water(base, range(120, 200))                                                # open water ahead
-    base.alpha_composite(port.crop((200, 0, W, H)), (200, 0))                   # crane and tug
+    water(base, range(120, W))                                                # open water ahead
+    draw_crane(base)                                                            # crane and tug
+    draw_tug(base)
     out = _sink(country, base, 120, 200, 45)
     for x in range(128, 200):                                   # a strip of sand where the hill meets the water
         out.putpixel((x, WATER - 1), hexc("#e8d6a0"))

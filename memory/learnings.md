@@ -22,7 +22,7 @@ Format: `- **G-###** (seen n) Rule. *(source · DD/MM/YYYY)*`
 
 - **G-008** (seen 1) Arrow keys choose the runner on the select screen; after that the game is Space only (Enter just saves the name). *("Select screen can use arrows … then it's just spacebar" · 20/11/2026)*
 - **G-009** (seen 1) Difficulty rises with time so no run lasts much more than a minute. *("no one should be playing for more than a minute" · 20/11/2026)*
-- **G-010** (seen 1) The crash shout is "YA BUGGER!". *(HT's pick from five North East options · 20/11/2026)*
+- **G-010** (seen 1) The crash shout is "AHH, SHITE!". *("Change end game message to 'Ahh, shite'" · 23/11/2026, was: "YA BUGGER!")*
 - **G-011** (seen 1) The game is called HT Dash. *("Change name to HT DASH" · 20/11/2026)*
 
 ## Team (as shown in the game)
@@ -30,9 +30,11 @@ Format: `- **G-###** (seen n) Rule. *(source · DD/MM/YYYY)*`
 - **G-012** (seen 1) Runners and roles: Dan, Managing Director (default); Dave, Production Director; Mark, Creative Director; Beth, Operations & Creative Coordinator; Sam, Editor; Jonas, Creative Producer. *(HT · 20/11/2026, Dave added 23/11/2026)*
 - **G-013** (seen 1) Characters stay flat 2D in the game; the 3D spin was tried and dropped. *("Go back to simple 2D Dan" · 23/11/2026)*
 - **G-014** (seen 1) Jonas has no goatee. *("Remove the goatee from Jonas" · 23/11/2026)*
-- **G-015** (seen 1) The HT logo sits top left on every screen, drawn smoothly, never pixelated. *(HT · 23/11/2026, "make the HT logo full, don't pixelate it")*
+- **G-015** (seen 1) The HT logo sits inside the HT DASH title panel, drawn smoothly, never pixelated. *("Move HT logo inside the HT DASH screen" · 23/11/2026, was: top left on every screen)*
 - **G-016** (seen 1) Use HT's logo-ring colours rather than invented accents: a colour per runner, ring-segment borders, the ring-style pie timer. *(HT picked ideas 1, 2 and 4 · 23/11/2026)*
 - **G-017** (seen 1) After 15 seconds the run goes from the fields into a port with big ships and an offshore wind farm. *(HT · 23/11/2026)*
 - **G-018** (seen 1) Flying obstacles glow so they're easy to see. *(HT · 23/11/2026)*
 - **G-019** (seen 1) Scene changes happen inside the scrolling world (each layer at its own speed), never as a wipe or split screen. *("come in naturally … seamless" · 23/11/2026)*
 - **G-020** (seen 1) Landing on top of an obstacle bounces and scores +5, once per obstacle. *(HT · 23/11/2026)*
+- **G-021** (seen 1) The select screen is the HT ring (design C): faces round the ring, arrows turn it, the chosen runner in the middle. *(HT · 23/11/2026)*
+- **G-022** (seen 1) Real-world things (cranes, ships) need their proper parts drawn, not a simplified sketch that reads as broken. *("cranes … seem broken and missing parts" · 23/11/2026)*

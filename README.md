@@ -32,7 +32,7 @@ Pick a runner with the arrow keys, then the game is played with the **spacebar**
 
 | Key | What it does |
 |---|---|
-| Left / Right arrows | Choose a runner on the title screen |
+| Left / Right arrows | Turn the HT ring on the title screen to choose a runner |
 | Space | Start, then jump. Tap for a small hop, hold for a big jump |
 | Type, then Enter | Add your name to the high scores at the end of a run |
 | F | Full screen on or off |
@@ -62,7 +62,7 @@ Faint wind streaks start rushing past as the speed picks up. Seagulls and drones
 
 ## HT colours
 
-- The HT logo sits top left on every screen, drawn smoothly rather than as pixels.
+- The HT logo sits in the title panel, drawn smoothly rather than as pixels, and the select screen is a big HT ring with the team's faces round it.
 - Each runner has their own colour from the logo ring: Dan orange, Dave mint, Mark lime, Beth magenta, Sam teal, Jonas mustard. It's used for their glow and label on the select screen, the game over card, and their name on the high scores.
 - Panels have a border made of the logo's colour segments.
 - The pie power timer is a mini HT ring whose segments switch off as the power runs out.
