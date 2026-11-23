@@ -81,7 +81,7 @@ Each runner has two made-up game stats out of 5, shown as bars on the intro scre
 | Dan | 3 | 3 |
 | Dave | 2 | 4 |
 | Mark | 4 | 2 |
-| Beth | 5 | 1 |
+| Beth | 3 | 3 |
 | Sam | 1 | 5 |
 | Jonas | 3 | 3 |
 
