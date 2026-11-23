@@ -64,6 +64,7 @@ const ASSETS = {
   container: "sprites/obstacles/container.png",
   port_mid: "sprites/backdrop/port_mid.png",
   port_ground: "sprites/backdrop/port_ground.png",
+  trans_ground: "sprites/backdrop/trans_ground.png",
   pie: "sprites/landmarks/pie.png",
   seagull_0: "sprites/obstacles/seagull_0.png",
   seagull_1: "sprites/obstacles/seagull_1.png",
@@ -97,6 +98,8 @@ for (let i = 0; i < 4; i++) {
   ASSETS["far_" + i] = `sprites/backdrop/hills_far_${i}.png`;
   ASSETS["mid_" + i] = `sprites/backdrop/hills_mid_${i}.png`;
   ASSETS["port_far_" + i] = `sprites/backdrop/port_far_${i}.png`;
+  ASSETS["trans_far_" + i] = `sprites/backdrop/trans_far_${i}.png`;   // field-to-port pieces
+  ASSETS["trans_mid_" + i] = `sprites/backdrop/trans_mid_${i}.png`;
 }
 function loadAll() {
   return Promise.all(Object.entries(ASSETS).map(([k, src]) => new Promise((ok, fail) => {
@@ -188,6 +191,8 @@ let runClock = 0, landTimer = 0;   // run animation and the squash after landing
 let bufferedAt = -99;              // Space pressed just before landing still counts
 let runTime = 0;                   // frames since this run started (60 a second)
 let wind = [];                     // faint streaks that rush past once the run speeds up
+let bonus = 0, popups = [];        // +5 for landing on top of an obstacle, and the floating "+5"
+let portStart = null;              // where (in each layer's own scroll) the field-to-port piece begins
 let take = 1;                      // today's take number, shown on the high score slate
 
 // Difficulty rises with time, not distance, so every run is over in about a minute:
@@ -196,11 +201,17 @@ let take = 1;                      // today's take number, shown on the high sco
 function secs() { return runTime / 60; }
 // The world: countryside for the first 15 seconds, then the port slides in from the right.
 const PORT_AT = 15;
-function inZone(o) { return !o.zone || (o.zone === "port") === (secs() >= PORT_AT); }
-function portMix() {
-  if (state === "title") return 0;
-  return Math.max(0, Math.min(1, (secs() - PORT_AT) / 2.5));
+// The port arrives as part of the world: at 15 seconds each layer's field-to-port piece is lined up
+// just off the right edge, on that layer's own tile boundary, so it scrolls in at the layer's speed.
+const LAYER_SPEED = { far: 0.1, mid: 0.3, ground: 1 };
+function startPort() {
+  const at = f => Math.ceil((Math.floor(distance * f) + W) / W) * W;
+  portStart = { far: at(LAYER_SPEED.far), mid: at(LAYER_SPEED.mid), ground: at(LAYER_SPEED.ground) };
 }
+function onQuay() {        // has the quay reached the point where obstacles appear?
+  return !!portStart && portStart.ground + W / 2 - Math.floor(distance) < W;
+}
+function inZone(o) { return !o.zone || (o.zone === "port") === onQuay(); }
 function difficulty() { return Math.min(1, secs() / 50); }
 let pies = [], pieGap = 0, power = 0, pieFlash = 0;
 const POWER_FRAMES = 600;        // pie power lasts 10 seconds
@@ -216,6 +227,7 @@ function newRun() {
   pieGap = 700 + Math.random() * 500;
   runTime = 0;
   wind = [];
+  bonus = 0; popups = []; portStart = null;
   take = nextTake();
   power = 0;
   pieFlash = 0;
@@ -301,7 +313,10 @@ function update() {
   // speed: 2.6 at the start, about 7 at 50 seconds, then it keeps on climbing
   speed = 2.6 + 4.4 * Math.pow(difficulty(), 1.3) + Math.max(0, secs() - 50) * 0.12;
   distance += speed;
-  score = Math.floor(distance / 10);
+  score = Math.floor(distance / 10) + bonus;
+  if (!portStart && secs() >= PORT_AT) startPort();
+  for (const p of popups) { p.y -= 0.4; p.t--; }
+  popups = popups.filter(p => p.t > 0);
 
   // Jump easing: float up while Space is held (let go early for a short hop),
   // hang for a moment at the top, then fall a little quicker than the rise.
@@ -355,11 +370,16 @@ function update() {
 
   for (const o of obstacles) {
     if (!hit(o)) continue;
-    // with pie power, coming down on top of something bounces Dan off it
+    // coming down on top of something: bounce off it and score 5 (once per obstacle)
     const feetBefore = dan.y + 29 - dan.vy;
-    if (power > 0 && dan.vy > 0 && feetBefore <= o.y + 6) {
+    if (dan.vy > 0 && feetBefore <= o.y + 6) {
       dan.y = o.y - 30;
       dan.vy = -4.2;
+      if (!o.stomped) {
+        o.stomped = true;
+        bonus += 5;
+        popups.push({ x: o.x + o.w / 2, y: o.y - 4, t: 45 });
+      }
       continue;
     }
     state = "crash";
@@ -375,13 +395,18 @@ function tileLayer(img, offset) {
   ctx.drawImage(img, W - o, 0);
 }
 
-// Countryside on the left of the edge, port on the right; the edge sweeps across as `mix` goes 0 to 1.
-function zoneLayer(country, port, offset, mix) {
-  if (mix <= 0) return tileLayer(country, offset);
-  if (mix >= 1) return tileLayer(port, offset);
-  const edge = Math.round(W * (1 - mix));
-  ctx.save(); ctx.beginPath(); ctx.rect(0, 0, edge, H); ctx.clip(); tileLayer(country, offset); ctx.restore();
-  ctx.save(); ctx.beginPath(); ctx.rect(edge, 0, W - edge, H); ctx.clip(); tileLayer(port, offset); ctx.restore();
+// One scrolling layer of the world: countryside tiles, then the field-to-port piece, then port tiles.
+function worldLayer(country, trans, port, speed, start) {
+  const o = Math.floor(distance * speed);
+  if (start == null || start - o >= W) return tileLayer(country, o);
+  const b = start - o;                             // screen x where the field-to-port piece starts
+  if (b > 0) {
+    ctx.save(); ctx.beginPath(); ctx.rect(0, 0, b, H); ctx.clip();
+    tileLayer(country, o);
+    ctx.restore();
+  }
+  if (b + W > 0) ctx.drawImage(trans, b, 0);
+  for (let x = b + W; x < W; x += W) if (x + W > 0) ctx.drawImage(port, x, 0);
 }
 
 function text(str, x, y, size, colour = "#fff", align = "center") {
@@ -529,10 +554,10 @@ function drawWorld() {
   // the small white plane crosses the sky every so often
   const px = (t * 0.35) % (W + 600) - 40;
   if (px < W + 10) ctx.drawImage(IMG.plane, Math.round(px), Math.round(38 + Math.sin(t / 40) * 2));
-  const mix = portMix();
-  zoneLayer(IMG["far_" + turbine], IMG["port_far_" + turbine], distance * 0.1, mix);
-  zoneLayer(IMG["mid_" + turbine], IMG.port_mid, distance * 0.3, mix);
-  zoneLayer(IMG.ground, IMG.port_ground, distance, mix);
+  const ps = state === "title" ? null : portStart;
+  worldLayer(IMG["far_" + turbine], IMG["trans_far_" + turbine], IMG["port_far_" + turbine], LAYER_SPEED.far, ps && ps.far);
+  worldLayer(IMG["mid_" + turbine], IMG["trans_mid_" + turbine], IMG.port_mid, LAYER_SPEED.mid, ps && ps.mid);
+  worldLayer(IMG.ground, IMG.trans_ground, IMG.port_ground, LAYER_SPEED.ground, ps && ps.ground);
 
   for (const w of wind) {
     ctx.fillStyle = `rgba(255,255,255,${w.a.toFixed(3)})`;
@@ -595,6 +620,11 @@ function drawHud() {
     }
   }
   if (pieFlash > 0) text("PIE POWER! SUPER JUMP!", W / 2, 50, 10, "#ffd98a");
+  for (const p of popups) {                                  // "+5" floating up from a stomped obstacle
+    ctx.globalAlpha = Math.min(1, p.t / 15);
+    text("+5", p.x, p.y, 9, who().colour);
+    ctx.globalAlpha = 1;
+  }
   text(`SCORE ${String(score).padStart(5, "0")}`, W - 6, 10, 8, "#fff", "right");
   text(`BEST ${String(Math.max(bestScore(), score)).padStart(5, "0")}`, W - 6, 20, 7, "#ffe2b0", "right");
 }

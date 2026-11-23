@@ -51,7 +51,7 @@ Every run gets harder with time, so nobody plays for much more than a minute:
 |---|---|
 | Start | Tripods, flight cases and sheep at a gentle pace |
 | 8 to 20 seconds | Cows, stacked cases and the roadworks barrier join in |
-| 15 seconds | The world slides from the countryside into a port: container ship, dockside crane, tug and an offshore wind farm. Sheep and cows give way to mooring bollards and shipping containers |
+| 15 seconds | You run from the fields into a port: the quay arrives under your feet past a signpost, the hills slope into the sea, then the container ship, crane, tug and offshore wind farm come into view. Sheep and cows give way to mooring bollards and shipping containers |
 | 15 to 18 seconds | Low seagulls and drones: jump over them (drones bob up and down) |
 | 22 to 28 seconds | High seagulls and drones: don't jump, or just tap for a small hop underneath |
 | 25 seconds | Pairs of obstacles close together: one long, held jump clears both |
@@ -69,9 +69,13 @@ Faint wind streaks start rushing past as the speed picks up. Seagulls and drones
 
 The speed rises the whole time and the gaps between obstacles shrink.
 
+## Stepping on obstacles
+
+Land on top of anything (camera kit, animals, containers, even a seagull) and you bounce off it and score **+5**, once per obstacle. Hitting the side still ends the run.
+
 ## Pie power
 
-Every so often a pie floats past at jump height. Grab it and Dan puts on a superhero cape, glows gold and jumps twice as high for 10 seconds (the timer is at the top of the screen). While powered up he bounces off anything he lands on. Pies get rarer as the run goes on.
+Every so often a pie floats past at jump height. Grab it and Dan puts on a superhero cape, glows gold and jumps twice as high for 10 seconds (the timer is at the top of the screen).  Pies get rarer as the run goes on.
 
 ## Client cameos
 

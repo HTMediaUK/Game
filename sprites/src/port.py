@@ -66,13 +66,18 @@ def port_far(frame):
 WATER = 122
 
 
-def port_mid():
-    img = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-    for x in range(W):                                     # nearer water, a little darker
+def water(img, xs):
+    """Nearer water, a little darker than the sea out at the horizon, with ripples."""
+    for x in xs:
         for y in range(WATER, H):
             img.putpixel((x, y), hexc("#3b7fb3" if y < WATER + 2 else "#336f9e"))
         if x % 9 < 3:
             img.putpixel((x, WATER + 6 + (x // 9) % 4 * 4), hexc("#5d9ac6"))
+
+
+def port_mid():
+    img = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    water(img, range(W))
     # container ship: hull, red waterline, HT on the bow
     x0, x1 = 14, 196
     for y in range(110, 131):
@@ -147,11 +152,99 @@ def port_ground():
     return img
 
 
+# ---------------------------------------------------------------- field-to-port pieces
+# One 320px piece per layer that starts as the countryside tile (so the left
+# edge joins it seamlessly) and ends as the port tile (so the right edge joins
+# that). In the game each layer reaches its piece at its own parallax speed.
+def _smooth(t):
+    t = max(0.0, min(1.0, t))
+    return t * t * (3 - 2 * t)
+
+
+def _sink(src, base, x0, x1, depth):
+    """Copy `src` onto `base`, sliding columns x0..x1 down so the hills sink out of sight."""
+    out = base.copy()
+    for x in range(W):
+        shift = 0 if x < x0 else round(depth * _smooth((x - x0) / (x1 - x0)))
+        if x > x1:
+            continue
+        for y in range(H):
+            sy = y - shift
+            if 0 <= sy < H:
+                px = src.getpixel((x, sy))
+                if px[3]:
+                    out.putpixel((x, y), px)
+    return out
+
+
+def trans_far(frame):
+    country = Image.open(OUT / f"hills_far_{frame}.png").convert("RGBA")
+    sea = port_far(frame)
+    base = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    base.alpha_composite(sea.crop((150, 0, W, H)), (150, 0))    # the sea opens up behind the sinking hills
+    return _sink(country, base, 150, 250, 60)
+
+
+def trans_mid(frame):
+    country = Image.open(OUT / f"hills_mid_{frame}.png").convert("RGBA")
+    port = port_mid()
+    base = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    water(base, range(120, 200))                                                # open water ahead
+    base.alpha_composite(port.crop((200, 0, W, H)), (200, 0))                   # crane and tug
+    out = _sink(country, base, 120, 200, 45)
+    for x in range(128, 200):                                   # a strip of sand where the hill meets the water
+        out.putpixel((x, WATER - 1), hexc("#e8d6a0"))
+    return out
+
+
+def trans_ground():
+    country = Image.open(OUT / "ground.png").convert("RGBA")
+    quay = port_ground()
+    out = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    out.alpha_composite(country.crop((0, 0, 150, H)), (0, 0))
+    out.alpha_composite(quay.crop((150, 0, W, H)), (150, 0))
+    for x in range(150, 162):                                   # grass runs out onto the quay
+        for y in range(GROUND_Y, GROUND_Y + 3 - (x - 150) // 4):
+            out.putpixel((x, y), hexc("#62b13c" if y > GROUND_Y else "#9bdc55"))
+    # wooden signpost with an anchor, where the field meets the quay
+    post, board = hexc("#7a4e2c"), hexc("#efe2c4")
+    for y in range(GROUND_Y - 22, GROUND_Y):
+        out.putpixel((156, y), post); out.putpixel((157, y), post)
+    for y in range(GROUND_Y - 30, GROUND_Y - 20):
+        for x in range(146, 168):
+            edge = y in (GROUND_Y - 30, GROUND_Y - 21) or x in (146, 167)
+            out.putpixel((x, y), hexc("#2a2433") if edge else board)
+    anchor = ["..x..", ".xxx.", "..x..", "..x..", "x.x.x", ".xxx."]
+    for j, row in enumerate(anchor):
+        for i, ch in enumerate(row):
+            if ch == "x":
+                out.putpixel((149 + i, GROUND_Y - 28 + j), hexc("#2c3a64"))
+    for i, (dx, dy) in enumerate([(0, 0), (1, 1), (2, 2), (1, 3), (0, 4)]):   # arrow
+        out.putpixel((162 + dx, GROUND_Y - 27 + dy), hexc("#b2383e"))
+    for x in range(156, 162):
+        out.putpixel((x, GROUND_Y - 25), hexc("#b2383e"))
+    return out
+
+
 if __name__ == "__main__":
     for f in range(4):
         port_far(f).save(OUT / f"port_far_{f}.png")
     port_mid().save(OUT / "port_mid.png")
     port_ground().save(OUT / "port_ground.png")
+    for f in range(4):
+        trans_far(f).save(OUT / f"trans_far_{f}.png")
+        trans_mid(f).save(OUT / f"trans_mid_{f}.png")
+    trans_ground().save(OUT / "trans_ground.png")
+    # preview: country tile, then the field-to-port piece, then the port tile, side by side
+    strip = Image.new("RGBA", (W * 3, H))
+    sky = Image.open(OUT / "sky.png").convert("RGBA")
+    for k in range(3):
+        strip.alpha_composite(sky, (k * W, 0))
+    for k, names in enumerate([("hills_far_0", "hills_mid_0", "ground"), ("trans_far_0", "trans_mid_0", "trans_ground"),
+                               ("port_far_0", "port_mid", "port_ground")]):
+        for n in names:
+            strip.alpha_composite(Image.open(OUT / f"{n}.png").convert("RGBA"), (k * W, 0))
+    strip.resize((W * 3 * 2, H * 2), Image.NEAREST).save(OUT / "transition_preview.png")
     s = Image.open(OUT / "sky.png").convert("RGBA")
     for layer in ("clouds.png", "port_far_0.png", "port_mid.png", "port_ground.png"):
         s.alpha_composite(Image.open(OUT / layer).convert("RGBA"))

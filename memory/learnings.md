@@ -32,5 +32,7 @@ Format: `- **G-###** (seen n) Rule. *(source · DD/MM/YYYY)*`
 - **G-014** (seen 1) Jonas has no goatee. *("Remove the goatee from Jonas" · 23/11/2026)*
 - **G-015** (seen 1) The HT logo sits top left on every screen, drawn smoothly, never pixelated. *(HT · 23/11/2026, "make the HT logo full, don't pixelate it")*
 - **G-016** (seen 1) Use HT's logo-ring colours rather than invented accents: a colour per runner, ring-segment borders, the ring-style pie timer. *(HT picked ideas 1, 2 and 4 · 23/11/2026)*
-- **G-017** (seen 1) After 15 seconds the world changes to a port with big ships and an offshore wind farm. *(HT · 23/11/2026)*
+- **G-017** (seen 1) After 15 seconds the run goes from the fields into a port with big ships and an offshore wind farm. *(HT · 23/11/2026)*
 - **G-018** (seen 1) Flying obstacles glow so they're easy to see. *(HT · 23/11/2026)*
+- **G-019** (seen 1) Scene changes happen inside the scrolling world (each layer at its own speed), never as a wipe or split screen. *("come in naturally … seamless" · 23/11/2026)*
+- **G-020** (seen 1) Landing on top of an obstacle bounces and scores +5, once per obstacle. *(HT · 23/11/2026)*
