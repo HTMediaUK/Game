@@ -37,6 +37,7 @@ Pick a runner with the arrow keys, then the game is played with the **spacebar**
 | Type, then Enter | Add your name to the high scores at the end of a run |
 | F | Full screen on or off |
 | Ctrl+Alt+R | Clear the high score table (asks first). Saved entries are kept |
+| Ctrl+Alt+B | Choose (or reconnect) the Notepad backup file |
 | Ctrl+Alt+E | Download every entry (name, work email, score, runner, date, time) as a spreadsheet (CSV) |
 
 ## The runners
@@ -105,6 +106,16 @@ Every entry is saved in Chrome on that laptop. It survives refreshing the page, 
 - always open the game from the same file, in the same place, in the same browser
 - don't clear Chrome's browsing data on that laptop until you've downloaded them
 - the entries are personal data, so store and use the downloaded file in line with HT's privacy policy
+
+### Automatic Notepad backup
+
+At the start of each day, press **Ctrl+Alt+B** on the title screen and choose where to save `HT-Dash-entries.txt`. A OneDrive or Google Drive folder is best, so it's copied online too; a USB stick works as well. After every entry the game rewrites that file with every entry so far, one line each:
+
+```
+23/11/2026  15:24  |  DAN  |  dan@example.co.uk  |  27
+```
+
+A small line at the bottom right of the title screen shows whether the backup is **on** (green, with the number of entries and the time it last saved) or needs attention (amber). After a refresh or restart Chrome may need you to press **Ctrl+Alt+B** once to allow it again; the status line says when. It works in Chrome and Edge, from the game file on the laptop (not from the web link).
 
 ## High scores
 

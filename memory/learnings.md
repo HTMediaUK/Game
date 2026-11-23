@@ -39,4 +39,5 @@ Format: `- **G-###** (seen n) Rule. *(source · DD/MM/YYYY)*`
 - **G-021** (seen 1) The select screen keeps the HT wheel (design C) on the right; the rest is open and uncluttered: no boxed panels, a title lockup and the chosen runner in big type on the left, keycap hints. *(HT: "keep the wheel but … looks too clunky" · 23/11/2026)*
 - **G-023** (seen 1) Three lives per run, with a short flashing recovery after each hit; runs still end within about a minute. *(HT · 23/11/2026)*
 - **G-024** (seen 1) Runners have two made-up game stats (Speed, Jump) out of 5 that add to 6, shown as bars on the intro; keep them light and never a comment on the real person. *(HT · 23/11/2026)*
+- **G-025** (seen 1) Entries must survive a refresh or a dead laptop: keep the browser copy, plus an automatic Notepad (.txt) backup with date, name, email and score, ideally in a synced folder. *(HT · 23/11/2026)*
 - **G-022** (seen 1) Real-world things (cranes, ships) need their proper parts drawn, not a simplified sketch that reads as broken. *("cranes … seem broken and missing parts" · 23/11/2026)*

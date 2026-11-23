@@ -135,6 +135,7 @@ window.EMBED = {
 //   F                   full screen
 //   Ctrl+Alt+R          clear the high score table (asks first; entries are kept)
 //   Ctrl+Alt+E          download every entry (name, work email, score) as a CSV
+//   Ctrl+Alt+B          choose (or reconnect) the Notepad backup file, rewritten after every entry
 // Collect a pie to jump twice as high for 10 seconds (and bounce off things you land on).
 // High scores are saved in this browser on this laptop (localStorage).
 // ---------------------------------------------------------------------------
@@ -277,6 +278,82 @@ function saveSubmission(entry) {
   list.push({ ...entry, at: new Date().toISOString() });
   try { localStorage.setItem(SUB_KEY, JSON.stringify(list)); } catch { /* storage blocked */ }
 }
+// ---- Notepad backup: a .txt file, chosen once, rewritten with every entry after each new one.
+// Browsers only write to a file the person has picked, so staff press Ctrl+Alt+B to choose it.
+// The choice is remembered (IndexedDB); after a refresh Chrome may need Ctrl+Alt+B once to allow it again.
+let backupHandle = null, backupState = "off", backupAt = null;   // off | on | reconnect | unsupported | error
+const BACKUP_DB = "ht-dash-backup";
+function backupDb() {
+  return new Promise((ok, fail) => {
+    const req = indexedDB.open(BACKUP_DB, 1);
+    req.onupgradeneeded = () => req.result.createObjectStore("handles");
+    req.onsuccess = () => ok(req.result);
+    req.onerror = () => fail(req.error);
+  });
+}
+async function rememberHandle(h) {
+  try {
+    const db = await backupDb();
+    db.transaction("handles", "readwrite").objectStore("handles").put(h, "notepad");
+  } catch { /* the backup still works this session */ }
+}
+async function recallHandle() {
+  try {
+    const db = await backupDb();
+    return await new Promise(ok => {
+      const r = db.transaction("handles").objectStore("handles").get("notepad");
+      r.onsuccess = () => ok(r.result || null);
+      r.onerror = () => ok(null);
+    });
+  } catch { return null; }
+}
+function notepadText() {
+  const lines = ["HT Dash entries", "Date        Time   | Name | Work email | Score", ""];
+  for (const s of loadSubmissions()) {
+    const d = new Date(s.at);
+    lines.push(`${d.toLocaleDateString("en-GB")}  ${d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}  |  ${s.name}  |  ${s.email}  |  ${s.score}`);
+  }
+  return lines.join("\r\n") + "\r\n";
+}
+async function writeBackup() {
+  if (!backupHandle) return;
+  try {
+    if (backupHandle.queryPermission && (await backupHandle.queryPermission({ mode: "readwrite" })) !== "granted") {
+      backupState = "reconnect";
+      return;
+    }
+    const w = await backupHandle.createWritable();
+    await w.write(notepadText());
+    await w.close();
+    backupState = "on";
+    backupAt = new Date();
+  } catch {
+    backupState = "error";
+  }
+}
+async function connectBackup() {                     // Ctrl+Alt+B (needs the key press to ask)
+  try {
+    if (backupHandle && backupState === "reconnect" && backupHandle.requestPermission) {
+      if ((await backupHandle.requestPermission({ mode: "readwrite" })) === "granted") return writeBackup();
+    }
+    if (!window.showSaveFilePicker) { backupState = "unsupported"; return; }
+    backupHandle = await window.showSaveFilePicker({
+      suggestedName: "HT-Dash-entries.txt",
+      types: [{ description: "Notepad text", accept: { "text/plain": [".txt"] } }],
+    });
+    await rememberHandle(backupHandle);
+    await writeBackup();
+  } catch { /* cancelled */ }
+}
+async function restoreBackup() {                     // on load: pick up last session's file if allowed
+  backupHandle = await recallHandle();
+  if (!backupHandle) return;
+  try {
+    const perm = backupHandle.queryPermission ? await backupHandle.queryPermission({ mode: "readwrite" }) : "granted";
+    backupState = perm === "granted" ? "on" : "reconnect";
+  } catch { backupState = "reconnect"; }
+}
+
 function exportSubmissions() {
   const rows = [["Name", "Work email", "Score", "Runner", "Date", "Time"]];
   for (const s of loadSubmissions()) {
@@ -702,6 +779,19 @@ function drawRingSelect() {
   const top = loadScores()[0];
   text(top ? `BEST  ${top.name}  ${top.score}` : "No scores yet. Be the first!", 18, 171, 5, "#8f8a9e", "left");
 
+  // staff status: is the Notepad backup working?
+  const count = loadSubmissions().length;
+  const n = `${count} ${count === 1 ? "entry" : "entries"}`;
+  const at = backupAt ? backupAt.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }) : "";
+  const status = {
+    on: [`Notepad backup on · ${n}${at ? " · saved " + at : ""}`, "#7fd18b"],
+    reconnect: ["Notepad backup paused · press Ctrl+Alt+B to allow", "#ffb84d"],
+    off: [`Notepad backup off · Ctrl+Alt+B to choose a file · ${n}`, "#ffb84d"],
+    unsupported: ["Notepad backup needs Chrome or Edge", "#ff8a8a"],
+    error: ["Notepad backup failed · press Ctrl+Alt+B", "#ff8a8a"],
+  }[backupState];
+  text(status[0], W - 6, 174, 4, status[1], "right");
+
   // the wheel
   const cx = 228, cy = 88, R = 68;
   const diff = ((sel * 60 - ringShown) % 360 + 540) % 360 - 180;   // shortest way round
@@ -938,6 +1028,10 @@ function pressStart() {
 }
 
 addEventListener("keydown", e => {
+  if (e.ctrlKey && e.altKey && e.key.toLowerCase() === "b") {      // choose or reconnect the Notepad backup
+    connectBackup();
+    return;
+  }
   if (e.ctrlKey && e.altKey && e.key.toLowerCase() === "e") {      // download every entry as a CSV
     exportSubmissions();
     return;
@@ -957,6 +1051,7 @@ addEventListener("keydown", e => {
       if (e.key === "Enter") {
         if (EMAIL_OK.test(emailText)) {
           saveSubmission({ name: nameText.trim(), email: emailText, score, runner: who().id });
+          writeBackup();                                                // update the Notepad file too
           boardRank = saveScore(nameText.trim(), score, who().id);   // the table only keeps the name
           obstacles = [];
           boardSince = performance.now();
@@ -1003,6 +1098,7 @@ function frame(now) {
   requestAnimationFrame(frame);
 }
 
+restoreBackup();
 loadAll().then(() => {
   distance = 0; score = 0; obstacles = [];
   requestAnimationFrame(frame);
