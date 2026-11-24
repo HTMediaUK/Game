@@ -14,7 +14,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <style>
   :root { --bg: #0e0c12; }
-  html, body { margin: 0; height: 100%; background: var(--bg); overflow: hidden; }
+  html, body { margin: 0; height: 100%; min-height: 100vh; background: var(--bg); overflow: hidden; }
   body { display: grid; place-items: center; }
   canvas { display: block; image-rendering: pixelated; image-rendering: crisp-edges; cursor: none; outline: none;
            touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
@@ -170,30 +170,45 @@ const NAME_TIMEOUT_MS = 60000;          // abandon name entry after a minute idl
 
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
-let S = 1;                               // integer scale from 320x180 to the screen
+let S = 1, TOP = 0;                      // scale from 320x180 to the screen's real pixels; TOP = OFF_Y * S
 
 // Fill the screen: the game is 320 wide; on screens squarer than 16:9 (an iPad is 4:3) the view
 // grows taller, the world sits in the middle, and the sky and ground carry on above and below.
 // VIEW_H is the visible height and OFF_Y where the 180-tall world starts within it.
 let VIEW_H = H, OFF_Y = 0, UI_SHIFT = 0;
 function resize() {
-  const vw = innerWidth, vh = innerHeight, aspect = vw / vh;
+  let vw = innerWidth, vh = innerHeight;
+  // Opened from the iPad home screen, iPadOS can report a window shorter than the screen
+  // (missing the status bar's height), which left a dark strip along the bottom. Use the
+  // real screen size instead when the game is running full screen.
+  const standalone = navigator.standalone || matchMedia("(display-mode: standalone)").matches;
+  if (standalone && screen.width && screen.height) {
+    const long = Math.max(screen.width, screen.height), short = Math.min(screen.width, screen.height);
+    const [sw, sh] = vw >= vh ? [long, short] : [short, long];
+    if (Math.abs(vw - sw) < 2 && vh < sh && sh - vh <= 60) vh = sh;
+  }
+  const aspect = vw / vh;
   // Taller screens than 16:9 (iPads, most laptops) get extra sky; rounding up means the
   // picture always covers the whole screen, with no gap along an edge.
   VIEW_H = aspect < W / H ? Math.min(260, Math.ceil(W / aspect)) : H;
   OFF_Y = VIEW_H - H;                                   // all the extra height goes to the sky
   UI_SHIFT = Math.round((VIEW_H - H) / 2);              // menus move up to sit centred on screen
   const scale = Math.min(vw / W, vh / VIEW_H);
-  S = Math.max(1, Math.ceil(scale));                     // draw crisp at a whole-number scale...
-  canvas.width = W * S;
-  canvas.height = VIEW_H * S;
-  // ...then stretch to fill the screen exactly, unless that would visibly squash the picture
+  // Fill the screen exactly, unless that would visibly squash the picture
   // (very wide or very tall windows get dark bars instead).
   const fills = VIEW_H < 260 && Math.abs(aspect / (W / VIEW_H) - 1) < 0.015;
   canvas.style.width = (fills ? vw : Math.floor(W * scale)) + "px";
   canvas.style.height = (fills ? vh : Math.floor(VIEW_H * scale)) + "px";
   canvas.style.position = fills ? "fixed" : "";          // pinned to the corner, so nothing can nudge it
   canvas.style.left = canvas.style.top = fills ? "0" : "";
+  // Draw at the screen's real resolution (e.g. 2160 x 1620 on a 10.2" iPad), not a smaller
+  // picture stretched up, so pixels are as even as the screen allows and text is sharp.
+  const dpr = Math.min(3, devicePixelRatio || 1);
+  const cssW = fills ? vw : Math.floor(W * scale), cssH = fills ? vh : Math.floor(VIEW_H * scale);
+  S = cssW * dpr / W;
+  canvas.width = Math.round(cssW * dpr);
+  canvas.height = Math.round(cssH * dpr);
+  TOP = Math.round(OFF_Y * S);
 }
 
 // On taller screens, carry the sky up into the extra height and float a second layer of
@@ -203,8 +218,8 @@ function extendWorld() {
   ctx.save();
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.imageSmoothingEnabled = false;
-  ctx.drawImage(canvas, 0, OFF_Y * S, W * S, S, 0, 0, W * S, OFF_Y * S);   // the sky's top colour
-  ctx.setTransform(S, 0, 0, S, 0, OFF_Y * S);
+  ctx.drawImage(canvas, 0, TOP + 1, canvas.width, 1, 0, 0, canvas.width, TOP + 1);   // the sky's top colour
+  ctx.setTransform(S, 0, 0, S, 0, TOP);
   ctx.beginPath(); ctx.rect(0, -OFF_Y, W, OFF_Y); ctx.clip();
   if (OFF_Y >= 20) {
     const o = Math.floor(t * 0.03 + distance * 0.012 + 140) % W;           // higher clouds drift slower
@@ -1229,7 +1244,7 @@ function drawTable(x, y, highlight) {
 }
 
 function draw() {
-  ctx.setTransform(S, 0, 0, S, 0, OFF_Y * S);              // the world sits in the middle of the view
+  ctx.setTransform(S, 0, 0, S, 0, TOP);                     // the world sits in the middle of the view
   ctx.imageSmoothingEnabled = false;
   drawWorld();
   if (state !== "title" && state !== "settings") extendWorld();
