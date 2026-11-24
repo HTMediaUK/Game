@@ -57,17 +57,23 @@ let S = 1;                               // integer scale from 320x180 to the sc
 // VIEW_H is the visible height and OFF_Y where the 180-tall world starts within it.
 let VIEW_H = H, OFF_Y = 0, UI_SHIFT = 0;
 function resize() {
-  const fit = Math.min(innerWidth / W, innerHeight / H);
-  VIEW_H = innerWidth / innerHeight < W / H ? Math.round(H * (innerHeight / H) / (innerWidth / W)) : H;
-  VIEW_H = Math.min(VIEW_H, 260);                       // very tall screens get small bars instead
+  const vw = innerWidth, vh = innerHeight, aspect = vw / vh;
+  // Taller screens than 16:9 (iPads, most laptops) get extra sky; rounding up means the
+  // picture always covers the whole screen, with no gap along an edge.
+  VIEW_H = aspect < W / H ? Math.min(260, Math.ceil(W / aspect)) : H;
   OFF_Y = VIEW_H - H;                                   // all the extra height goes to the sky
   UI_SHIFT = Math.round((VIEW_H - H) / 2);              // menus move up to sit centred on screen
-  const scale = Math.min(innerWidth / W, innerHeight / VIEW_H);
+  const scale = Math.min(vw / W, vh / VIEW_H);
   S = Math.max(1, Math.ceil(scale));                     // draw crisp at a whole-number scale...
   canvas.width = W * S;
   canvas.height = VIEW_H * S;
-  canvas.style.width = Math.floor(W * scale) + "px";     // ...then stretch to fill the screen
-  canvas.style.height = Math.floor(VIEW_H * scale) + "px";
+  // ...then stretch to fill the screen exactly, unless that would visibly squash the picture
+  // (very wide or very tall windows get dark bars instead).
+  const fills = VIEW_H < 260 && Math.abs(aspect / (W / VIEW_H) - 1) < 0.015;
+  canvas.style.width = (fills ? vw : Math.floor(W * scale)) + "px";
+  canvas.style.height = (fills ? vh : Math.floor(VIEW_H * scale)) + "px";
+  canvas.style.position = fills ? "fixed" : "";          // pinned to the corner, so nothing can nudge it
+  canvas.style.left = canvas.style.top = fills ? "0" : "";
 }
 
 // On taller screens, carry the sky up into the extra height and float a second layer of
@@ -106,6 +112,8 @@ function centred(fn) {
   ctx.restore();
 }
 addEventListener("resize", resize);
+visualViewport?.addEventListener("resize", resize);        // Safari toolbars showing or hiding
+addEventListener("orientationchange", () => setTimeout(resize, 300));
 resize();
 
 // ----------------------------------------------------------------- assets
