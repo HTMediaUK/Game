@@ -172,14 +172,41 @@ const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 let S = 1;                               // integer scale from 320x180 to the screen
 
+// Fill the screen: the game is 320 wide; on screens squarer than 16:9 (an iPad is 4:3) the view
+// grows taller, the world sits in the middle, and the sky and ground carry on above and below.
+// VIEW_H is the visible height and OFF_Y where the 180-tall world starts within it.
+let VIEW_H = H, OFF_Y = 0;
 function resize() {
-  // draw at a whole-number scale (crisp pixels), then stretch to fill the screen exactly
   const fit = Math.min(innerWidth / W, innerHeight / H);
-  S = Math.max(1, Math.ceil(fit));
+  VIEW_H = innerWidth / innerHeight < W / H ? Math.round(H * (innerHeight / H) / (innerWidth / W)) : H;
+  VIEW_H = Math.min(VIEW_H, 260);                       // very tall screens get small bars instead
+  OFF_Y = Math.round((VIEW_H - H) * 0.55);              // a little more sky than ground
+  const scale = Math.min(innerWidth / W, innerHeight / VIEW_H);
+  S = Math.max(1, Math.ceil(scale));                     // draw crisp at a whole-number scale...
   canvas.width = W * S;
-  canvas.height = H * S;
-  canvas.style.width = Math.floor(W * fit) + "px";
-  canvas.style.height = Math.floor(H * fit) + "px";
+  canvas.height = VIEW_H * S;
+  canvas.style.width = Math.floor(W * scale) + "px";     // ...then stretch to fill the screen
+  canvas.style.height = Math.floor(VIEW_H * scale) + "px";
+}
+
+// Carry the world's top row up and its bottom row down into the extra height (sky and ground).
+function extendWorld() {
+  if (OFF_Y <= 0 && VIEW_H <= H) return;
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.imageSmoothingEnabled = false;
+  if (OFF_Y > 0) ctx.drawImage(canvas, 0, OFF_Y * S, W * S, S, 0, 0, W * S, OFF_Y * S);
+  const below = VIEW_H - H - OFF_Y;
+  if (below > 0) ctx.drawImage(canvas, 0, (OFF_Y + H - 1) * S, W * S, S, 0, (OFF_Y + H) * S, W * S, below * S);
+  ctx.restore();
+}
+
+// Draw something pinned to the real top of the screen rather than to the world.
+function atScreenTop(fn) {
+  ctx.save();
+  ctx.translate(0, -OFF_Y);
+  fn();
+  ctx.restore();
 }
 addEventListener("resize", resize);
 resize();
@@ -691,14 +718,14 @@ function worldLayer(zones, trans, speed, starts) {
   }
 }
 
-function text(str, x, y, size, colour = "#fff", align = "center") {
+function text(str, x, y, size, colour = "#fff", align = "center", maxWidth) {
   ctx.font = `bold ${size}px ui-monospace, "Cascadia Mono", Consolas, "Courier New", monospace`;
   ctx.textAlign = align;
   ctx.textBaseline = "middle";
   ctx.fillStyle = "rgba(18,14,23,0.85)";
-  ctx.fillText(str, x + 0.75, y + 0.75);   // drop shadow
+  ctx.fillText(str, x + 0.75, y + 0.75, maxWidth);   // drop shadow; maxWidth squeezes long text to fit
   ctx.fillStyle = colour;
-  ctx.fillText(str, x, y);
+  ctx.fillText(str, x, y, maxWidth);
 }
 
 const HT_COLOURS = ["#765443", "#c49782", "#657da0", "#566f41", "#8883b5", "#66bfad",
@@ -862,7 +889,7 @@ const SETTINGS = [
 
 function drawSettings() {
   ctx.fillStyle = "rgba(14,12,20,0.75)";
-  ctx.fillRect(0, 0, W, H);
+  ctx.fillRect(0, -OFF_Y, W, VIEW_H);
   panel(40, 18, 240, 144);
   textSans("SETTINGS", 54, 32, 11);
   text("for HT staff", 266, 32, 5, "#8f8a9e", "right");
@@ -884,13 +911,14 @@ function drawSettings() {
 }
 
 function drawRingSelect() {
+  extendWorld();
   // fade the world: dark on the left behind the words, lighter towards the wheel
   const g = ctx.createLinearGradient(0, 0, W, 0);
   g.addColorStop(0, "rgba(14,12,20,0.9)");
   g.addColorStop(0.5, "rgba(14,12,20,0.6)");
   g.addColorStop(1, "rgba(14,12,20,0.35)");
   ctx.fillStyle = g;
-  ctx.fillRect(0, 0, W, H);
+  ctx.fillRect(0, -OFF_Y, W, VIEW_H);
   const c = who();
 
   // title lockup
@@ -943,7 +971,9 @@ function drawRingSelect() {
 
   // staff status: is the Notepad backup working? (Ctrl+Alt+S opens settings)
   const status = backupStatus();
-  text(`${status[0]} · ${isTouch ? "hold the logo for settings" : "Ctrl+Alt+S settings"}`, W - 6, 174, 4, status[1], "right");
+  // staff line, bottom right: short on touchscreens, and squeezed so it never runs off the screen
+  const staff = isTouch ? `${entryCount()} saved · hold the logo for settings` : `${status[0]} · Ctrl+Alt+S settings`;
+  atScreenTop(() => text(staff, W - 6, VIEW_H - 5, 3.6, isTouch ? "#b8b3c4" : status[1], "right", 150));
 
   // the wheel
   const cx = 228, cy = 88, R = 68;
@@ -1061,6 +1091,17 @@ function heart(x, y, full) {
 }
 
 function drawHud() {
+  for (const p of popups) {                                  // "+5" floating up from a stomped obstacle
+    ctx.globalAlpha = Math.min(1, p.t / 15);
+    text(p.label || "+5", p.x, p.y, 9, p.colour || who().colour);
+    ctx.globalAlpha = 1;
+  }
+  if (pieFlash > 0) text("PIE POWER! SUPER JUMP!", W / 2, 50, 10, "#ffd98a");
+  atScreenTop(drawTopBar);
+}
+
+// Hearts, pie timer and score: pinned to the top corners of the actual screen.
+function drawTopBar() {
   for (let i = 0; i < LIVES; i++) heart(8 + i * 10, 8, i < lives);
   if (power > 0) {
     // pie power timer, top centre: a mini HT ring whose segments switch off as it runs out
@@ -1070,12 +1111,6 @@ function drawHud() {
       drawRingTimer(W / 2, 17, 11, power / POWER_FRAMES);
       ctx.drawImage(IMG.pie, W / 2 - 9, 10);
     }
-  }
-  if (pieFlash > 0) text("PIE POWER! SUPER JUMP!", W / 2, 50, 10, "#ffd98a");
-  for (const p of popups) {                                  // "+5" floating up from a stomped obstacle
-    ctx.globalAlpha = Math.min(1, p.t / 15);
-    text(p.label || "+5", p.x, p.y, 9, p.colour || who().colour);
-    ctx.globalAlpha = 1;
   }
   text(`SCORE ${String(score).padStart(5, "0")}`, W - 6, 10, 8, "#fff", "right");
   text(`BEST ${String(Math.max(bestScore(), score)).padStart(5, "0")}`, W - 6, 20, 7, "#ffe2b0", "right");
@@ -1162,9 +1197,10 @@ function drawTable(x, y, highlight) {
 }
 
 function draw() {
-  ctx.setTransform(S, 0, 0, S, 0, 0);
+  ctx.setTransform(S, 0, 0, S, 0, OFF_Y * S);              // the world sits in the middle of the view
   ctx.imageSmoothingEnabled = false;
   drawWorld();
+  if (state !== "title" && state !== "settings") extendWorld();
 
   if (state === "play" || state === "crash") drawHud();
 
@@ -1309,12 +1345,12 @@ const inBox = (p, b) => p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b
 
 function toGame(e) {
   const r = canvas.getBoundingClientRect();
-  return { x: (e.clientX - r.left) / r.width * W, y: (e.clientY - r.top) / r.height * H };
+  return { x: (e.clientX - r.left) / r.width * W, y: (e.clientY - r.top) / r.height * VIEW_H - OFF_Y };
 }
 
 function placeTyper(box) {                        // lay the invisible text box over the drawn one
   const r = canvas.getBoundingClientRect(), k = r.width / W;
-  Object.assign(typer.style, { display: "block", left: r.left + box.x * k + "px", top: r.top + box.y * k + "px",
+  Object.assign(typer.style, { display: "block", left: r.left + box.x * k + "px", top: r.top + (box.y + OFF_Y) * k + "px",
     width: box.w * k + "px", height: box.h * k + "px" });
 }
 function focusTyper(which) {

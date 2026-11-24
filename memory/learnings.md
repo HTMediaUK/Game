@@ -45,4 +45,5 @@ Format: `- **G-###** (seen n) Rule. *(source · DD/MM/YYYY)*`
 - **G-028** (seen 1) The game over card shows HT's email: info@ht-media.com. *(HT · 23/11/2026)*
 - **G-029** (seen 1) The game must also work by touch (iPad): tap to jump, swipe or tap faces, tap boxes to type, SAVE button, hold the logo for settings. Keyboard controls stay for the laptop. *(HT · 23/11/2026)*
 - **G-030** (seen 1) The game is played from GitHub Pages (https://htmediauk.github.io/Game/) once the repo is public; keep `index.html` at the repo root with relative paths. *(HT · 23/11/2026)*
+- **G-031** (seen 1) The game fills any screen: on squarer screens (iPad) the view grows taller, the sky and ground carry on, the HUD pins to the real top corners; staff text stays small and inside the screen. *("make the whole game and UI responsive … bottom right text goes outside the screen" · 24/11/2026)*
 - **G-022** (seen 1) Real-world things (cranes, ships) need their proper parts drawn, not a simplified sketch that reads as broken. *("cranes … seem broken and missing parts" · 23/11/2026)*
