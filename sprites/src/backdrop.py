@@ -19,6 +19,7 @@ import sys
 from PIL import Image
 
 sys.path.insert(0, str(Path(__file__).parent))
+from soil import deepen  # noqa: E402
 import landmarks  # noqa: E402
 
 # Layout of the near hills (one 320px tile). Everything has its own patch of
@@ -272,6 +273,7 @@ def ground():
         c = rng.choice((soil_l, soil_d))
         for dx in (0, 1):
             img.putpixel(((x + dx) % W, y), c)
+    deepen(img, soil, bottom, seed=3)                      # deeper soil, not a flat strip
     return img
 
 

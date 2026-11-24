@@ -16,6 +16,7 @@ from pathlib import Path
 from PIL import Image
 
 sys.path.insert(0, str(Path(__file__).parent))
+from soil import deepen  # noqa: E402
 import backdrop as bd  # noqa: E402
 import port  # noqa: E402
 
@@ -173,6 +174,7 @@ def canal_ground():
         img.putpixel((x, y), hexc(rng.choice(("#cbbd9c", "#9e8f72", "#d8cdb3"))))
     for x in range(0, W, 24):                                        # stone joints
         img.putpixel((x, GROUND_Y), hexc("#a39d90"))
+    deepen(img, hexc("#b8a888"), hexc("#9a8c70"), seed=9)  # packed gravel below
     return img
 
 
