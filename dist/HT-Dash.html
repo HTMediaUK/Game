@@ -713,7 +713,7 @@ function ringBorder(x, y, w, h) {
 }
 
 // The HT logo, drawn smoothly (not pixelated): coloured ring, grey ring, "ht" in the middle.
-function drawHTLogo(cx, cy, R, withText = true) {
+function drawHTLogo(cx, cy, R, withText = true, backdrop = true) {   // backdrop: the discs behind the ring and text
   const sector = (r0, r1, a0, a1, colour) => {
     ctx.beginPath();
     ctx.arc(cx, cy, r1, a0, a1);
@@ -722,16 +722,20 @@ function drawHTLogo(cx, cy, R, withText = true) {
     ctx.fillStyle = colour;
     ctx.fill();
   };
-  ctx.beginPath(); ctx.arc(cx, cy, R + 0.6, 0, Math.PI * 2);
-  ctx.fillStyle = "rgba(255,255,255,0.9)"; ctx.fill();
+  if (backdrop) {
+    ctx.beginPath(); ctx.arc(cx, cy, R + 0.6, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(255,255,255,0.9)"; ctx.fill();
+  }
   for (let k = 0; k < 36; k++) {
     const a0 = (-90 + k * 10 + 0.9) * Math.PI / 180, a1 = (-90 + k * 10 + 9.1) * Math.PI / 180;
     sector(R * 0.8, R, a0, a1, HT_COLOURS[(k >> 1) % 18]);
     const inner = k < 18 ? ["#5b5b5d", "#77777a"][k % 2] : ["#cfd0d2", "#e6e7e8"][k % 2];
     sector(R * 0.6, R * 0.74, a0 + 0.02, a1 - 0.02, inner);
   }
-  ctx.beginPath(); ctx.arc(cx, cy, R * 0.56, 0, Math.PI * 2);
-  ctx.fillStyle = "#16141a"; ctx.fill();
+  if (backdrop) {
+    ctx.beginPath(); ctx.arc(cx, cy, R * 0.56, 0, Math.PI * 2);
+    ctx.fillStyle = "#16141a"; ctx.fill();
+  }
   if (!withText) return;
   ctx.font = `bold ${R * 0.62}px "Segoe UI", "Helvetica Neue", Arial, sans-serif`;
   ctx.textAlign = "center"; ctx.textBaseline = "middle";
@@ -881,7 +885,7 @@ function drawRingSelect() {
   const c = who();
 
   // title lockup
-  drawHTLogo(30, 28, 13);
+  drawHTLogo(30, 28, 13, true, false);                    // the logo on its own, no discs behind it
   textSans("HT DASH", 50, 24, 17);
   text("an HT Media game", 51, 37, 5, "#b8b3c4", "left");
   for (let i = 0; i < 18; i++) {                          // thin rule in the logo's colours
