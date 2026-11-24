@@ -66,22 +66,19 @@ Dan (Managing Director) is the default. Use the left and right arrows on the tit
 
 ## Getting harder
 
-Every run gets harder with time, so nobody plays for much more than a minute:
+The speed stays calm: it eases from a gentle start up to about 3.8 at 50 seconds and then holds steady, so the game doesn't race. Runs end because the obstacles build up, and nobody plays for much more than a minute:
 
 | From | What changes |
 |---|---|
-| Start | Tripods, flight cases and sheep at a gentle pace |
-| 8 to 20 seconds | Cows, stacked cases and the roadworks barrier join in |
+| Start | Tripods, flight cases and sheep, nicely spaced |
 | 8 seconds | Cows join in: Friesian, Hereford, Belted Galloway, Jersey and Highland |
-| 15 seconds | You run from the fields into a port: the quay arrives under your feet past a signpost, the hills slope into the sea, then the container ship, crane, tug and offshore wind farm come into view. Sheep and cows give way to mooring bollards and shipping containers |
-| 15 to 18 seconds | Low seagulls and drones: jump over them (drones bob up and down) |
-| 22 to 28 seconds | High seagulls and drones: don't jump, or just tap for a small hop underneath |
-| 25 seconds | Pairs of obstacles close together: one long, held jump clears both |
-| 40 seconds | No more pies |
-| 30 seconds | The port gives way to a Scottish canal: Highland hills with snow on the tops, canal boats, a stone humpback bridge, lock gates, a lock-keeper's cottage and a gravel towpath. Highland cows, sheep and bollards to jump |
-| 50 seconds | The speed keeps climbing until you crash |
+| 15 seconds | You run from the fields into a port: container ship, dockside crane, tug and an offshore wind farm. Sheep and cows give way to mooring bollards and shipping containers. Seagulls and drones arrive (jump the low ones, stay under the high ones) |
+| 20 seconds | Pairs of obstacles close together: one long held jump, or hop along the tops for +5s |
+| 30 seconds | The port gives way to a Scottish canal: Highland hills, canal boats, a stone bridge, lock gates, a lock-keeper's cottage and a towpath. Highland cows, sheep and bollards |
+| 40 seconds | Groups of three, and no more pies |
+| 50 seconds | Obstacles come thick and fast until you're out |
 
-Faint wind streaks start rushing past as the speed picks up. Seagulls and drones glow so they're easy to spot.
+The background moves gently (the near hills at under a fifth of the ground's speed, the far distance barely at all) to keep the motion calm. The far distance fades from one area to the next instead of scrolling.
 
 ## HT colours
 

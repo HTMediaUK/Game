@@ -136,9 +136,8 @@ for (let i = 0; i < 4; i++) {
   ASSETS["far_" + i] = `sprites/backdrop/hills_far_${i}.png`;
   ASSETS["mid_" + i] = `sprites/backdrop/hills_mid_${i}.png`;
   ASSETS["port_far_" + i] = `sprites/backdrop/port_far_${i}.png`;
-  ASSETS["trans_far_" + i] = `sprites/backdrop/trans_far_${i}.png`;   // field-to-port pieces
+  // field-to-port pieces (the far distance fades instead, so it has none)
   ASSETS["trans_mid_" + i] = `sprites/backdrop/trans_mid_${i}.png`;
-  ASSETS["trans2_far_" + i] = `sprites/backdrop/trans2_far_${i}.png`;   // port-to-canal pieces
 }
 function loadAll() {
   return Promise.all(Object.entries(ASSETS).map(([k, src]) => new Promise((ok, fail) => {
@@ -322,22 +321,31 @@ const STOMP_COLOURS = ["#c49782", "#66bfad", "#d97e30", "#c45b66", "#9dbc3e", "#
 let zoneStarts = null;             // per layer: where (in its own scroll) each next area's piece begins
 let take = 1;                      // today's take number, shown on the high score slate
 
-// Difficulty rises with time, not distance, so every run is over in about a minute:
-//   0-15s gentle, ground only | 15s seagulls | 25s close pairs, fewer pies
-//   40s no more pies | 50s+ speed keeps climbing past what people can react to
+// Difficulty rises with time, not distance, so every run is over in about a minute. The
+// speed stays calm (it tops out at 50 seconds); it's the obstacles that build up:
+//   0-15s gentle, ground only | 15s seagulls and drones | 20s close pairs, fewer pies
+//   40s groups of three, no more pies | 50s+ obstacles come thick and fast
 function secs() { return runTime / 60; }
 // The world runs through three areas: countryside, then a port at 15 seconds, then a Scottish
 // canal at 30. Each new area arrives as part of the world: its in-between piece is lined up just
 // off the right edge on each layer's own tile boundary, so it scrolls in at that layer's speed.
 const ZONES = ["country", "port", "canal"];
 const ZONE_AT = [15, 30];
-const LAYER_SPEED = { far: 0.1, mid: 0.3, ground: 1 };
-function startNextZone() {
-  if (!zoneStarts) zoneStarts = { far: [], mid: [], ground: [] };
-  for (const [name, f] of Object.entries(LAYER_SPEED)) {
+// Gentle parallax: the background moves much less than the ground, to keep motion calm.
+const LAYER_SPEED = { far: 0.06, mid: 0.18, ground: 1 };
+// The near layer starts its change a little early so each new area arrives with the ground.
+// (The far distance moves too slowly to scroll a change in, so it fades between areas instead.)
+const ZONE_LEAD = { mid: 7, ground: 0 };
+function startNextZone(name) {
+  const list = zoneStarts[name];
+  const at = Math.ceil((Math.floor(distance * LAYER_SPEED[name]) + W) / W) * W;
+  list.push(list.length ? Math.max(at, list[list.length - 1] + 2 * W) : at);   // a full stretch of each area
+}
+function scheduleZones() {
+  if (!zoneStarts) zoneStarts = { mid: [], ground: [] };
+  for (const name of Object.keys(ZONE_LEAD)) {
     const list = zoneStarts[name];
-    const at = Math.ceil((Math.floor(distance * f) + W) / W) * W;
-    list.push(list.length ? Math.max(at, list[list.length - 1] + W) : at);   // at least one tile of each area
+    while (list.length < ZONE_AT.length && secs() >= ZONE_AT[list.length] - ZONE_LEAD[name]) startNextZone(name);
   }
 }
 function groundZone() {    // which area has reached the point where obstacles appear?
@@ -388,16 +396,23 @@ function spawn() {
   const im = IMG[kind.frames[0]];
   const y = kind.air !== undefined ? kind.air : GROUND_Y - im.height + 1;
   obstacles.push({ kind, x: W + 4, y, baseY: y, w: im.width, h: im.height, phase: Math.random() * 100 });
-  // gap grows with speed so jumps stay possible, but shrinks as the run goes on
-  nextGap = (110 + Math.random() * 130) * (0.7 + speed / 6) * (1 - 0.4 * difficulty());
-  // from 25 seconds, sometimes a second ground obstacle follows close behind:
-  // clear both with one long, held jump
-  if (secs() > 25 && !kind.air && Math.random() < 0.15 + 0.25 * difficulty()) {
-    const twin = OBSTACLES.filter(o => !o.air && o.name !== "roadblock" && secs() >= o.from && inZone(o));
-    const k2 = twin[Math.floor(Math.random() * twin.length)];
-    const im2 = IMG[k2.frames[0]];
-    obstacles.push({ kind: k2, x: W + 4 + im.width + 18 + speed * 4, y: GROUND_Y - im2.height + 1, w: im2.width, h: im2.height });
-    nextGap += 60;
+  // more and more obstacles as the run goes on: the gaps tighten steadily, and after
+  // 50 seconds they come thick and fast
+  nextGap = (110 + Math.random() * 130) * (0.7 + speed / 6) * (1 - 0.45 * difficulty()) * (secs() > 50 ? 0.6 : 1);
+  // groups: from 20 seconds a second ground obstacle can follow close behind (one long held
+  // jump clears both, or hop along the tops for +5s); from 40 seconds sometimes a third
+  if (secs() > 20 && !kind.air && Math.random() < 0.15 + 0.35 * difficulty() + (secs() > 50 ? 0.2 : 0)) {
+    const pool2 = OBSTACLES.filter(o => !o.air && o.name !== "roadblock" && secs() >= o.from && inZone(o));
+    let x = W + 4 + im.width;
+    const extra = secs() > 40 && Math.random() < (secs() > 50 ? 0.5 : 0.3) ? 2 : 1;
+    for (let n = 0; n < extra; n++) {
+      const k2 = pool2[Math.floor(Math.random() * pool2.length)];
+      const im2 = IMG[k2.frames[0]];
+      x += 18 + speed * 4;
+      obstacles.push({ kind: k2, x, y: GROUND_Y - im2.height + 1, w: im2.width, h: im2.height });
+      x += im2.width;
+      nextGap += 60;
+    }
   }
   if (high(kind)) nextGap += 70;   // room to land after hopping under it
   if (power > 0) nextGap *= 1.7;   // super jumps hang longer, so leave room to land
@@ -446,11 +461,13 @@ function update() {
 
   runTime++;
   // speed: 2.6 at the start, about 7 at 50 seconds, then it keeps on climbing
-  speed = (2.6 + 4.4 * Math.pow(difficulty(), 1.3) + Math.max(0, secs() - 50) * 0.12) * speedMul();
+  // calm speed: 2.2 at the start, easing up to 3.8 at 50 seconds, then it stays there;
+  // runs end because the obstacles get closer together, not because the world races
+  speed = (2.2 + 1.6 * Math.pow(difficulty(), 1.1)) * speedMul();
   if (invuln > 0) invuln--;
   distance += speed;
   score = Math.floor(distance / 10) + bonus;
-  while (secs() >= ZONE_AT[zoneStarts ? zoneStarts.ground.length : 0]) startNextZone();
+  scheduleZones();
   for (const p of popups) { p.y -= 0.4; p.t--; }
   popups = popups.filter(p => p.t > 0);
 
@@ -839,13 +856,28 @@ function drawRingSelect() {
 function drawWorld() {
   const turbine = Math.floor(t / 6) % 4;
   ctx.drawImage(IMG.sky, 0, 0);
-  tileLayer(IMG.clouds, t * 0.1 + distance * 0.05);
+  tileLayer(IMG.clouds, t * 0.05 + distance * 0.02);
   // the small white plane crosses the sky every so often
   const px = (t * 0.35) % (W + 600) - 40;
   if (px < W + 10) ctx.drawImage(IMG.plane, Math.round(px), Math.round(38 + Math.sin(t / 40) * 2));
-  const zs = state === "title" || state === "settings" || !zoneStarts ? { far: [], mid: [], ground: [] } : zoneStarts;
-  worldLayer([IMG["far_" + turbine], IMG["port_far_" + turbine], IMG.canal_far],
-             [IMG["trans_far_" + turbine], IMG["trans2_far_" + turbine]], LAYER_SPEED.far, zs.far);
+  const zs = state === "title" || state === "settings" || !zoneStarts ? { mid: [], ground: [] } : zoneStarts;
+  // far distance: fades from one area to the next over 3 seconds as the ground changes
+  const farTiles = [IMG["far_" + turbine], IMG["port_far_" + turbine], IMG.canal_far];
+  const farOffset = Math.floor(distance * LAYER_SPEED.far);
+  let farZone = 0, farFade = 0;
+  if (state !== "title" && state !== "settings" && zoneStarts) {
+    ZONE_AT.forEach((at, i) => {
+      const k = Math.max(0, Math.min(1, (secs() - at - 1.5) / 3));
+      if (k > 0) { farZone = i; farFade = k; }
+    });
+    if (farFade >= 1) { farZone++; farFade = 0; }
+  }
+  tileLayer(farTiles[farZone], farOffset);
+  if (farFade > 0) {
+    ctx.globalAlpha = farFade;
+    tileLayer(farTiles[farZone + 1], farOffset);
+    ctx.globalAlpha = 1;
+  }
   worldLayer([IMG["mid_" + turbine], IMG.port_mid, IMG.canal_mid],
              [IMG["trans_mid_" + turbine], IMG.trans2_mid], LAYER_SPEED.mid, zs.mid);
   worldLayer([IMG.ground, IMG.port_ground, IMG.canal_ground],
