@@ -21,7 +21,7 @@ Format: `- **G-###** (seen n) Rule. *(source · DD/MM/YYYY)*`
 ## Gameplay
 
 - **G-008** (seen 1) Arrow keys choose the runner on the select screen; after that the game is Space only (Enter just saves the name). *("Select screen can use arrows … then it's just spacebar" · 20/11/2026)*
-- **G-009** (seen 1) Difficulty rises with time so no run lasts much more than a minute. *("no one should be playing for more than a minute" · 20/11/2026)*
+- **G-009** (seen 1) Difficulty rises with time so no run lasts much more than a minute, but through more and denser obstacles, never a racing speed: top speed about 3.8, gentle parallax. *("no one should be playing for more than a minute" · 20/11/2026; changed 24/11/2026 after players felt motion sick, was: speed climbing without limit)*
 - **G-010** (seen 1) The crash shout is "AHH, SHITE!". *("Change end game message to 'Ahh, shite'" · 23/11/2026, was: "YA BUGGER!")*
 - **G-011** (seen 1) The game is called HT Dash. *("Change name to HT DASH" · 20/11/2026)*
 
