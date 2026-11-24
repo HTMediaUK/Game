@@ -714,8 +714,11 @@ function update() {
 }
 
 // ----------------------------------------------------------------- drawing
+// Positions snap to real screen pixels, not whole game pixels, so slow layers glide
+// instead of hopping a chunky pixel at a time.
+const snap = v => Math.round(v * S) / S;
 function tileLayer(img, offset) {
-  const o = Math.floor(offset) % W;
+  const o = snap(offset) % W;
   ctx.drawImage(img, -o, 0);
   ctx.drawImage(img, W - o, 0);
 }
@@ -723,7 +726,7 @@ function tileLayer(img, offset) {
 // One scrolling layer of the world, drawn tile by tile: each area's tiles, with the in-between
 // piece on the tile where the next area starts. `zones` are the area tiles, `trans` the pieces.
 function worldLayer(zones, trans, speed, starts) {
-  const o = Math.floor(distance * speed);
+  const o = snap(distance * speed);
   for (let k = Math.floor(o / W); k * W - o < W; k++) {
     const x0 = k * W;
     let img = zones[0];
@@ -1034,7 +1037,7 @@ function drawWorld() {
   const zs = state === "title" || state === "settings" || !zoneStarts ? { mid: [], ground: [] } : zoneStarts;
   // far distance: fades from one area to the next over 3 seconds as the ground changes
   const farTiles = [IMG["far_" + turbine], IMG["port_far_" + turbine], IMG.canal_far];
-  const farOffset = Math.floor(distance * LAYER_SPEED.far);
+  const farOffset = distance * LAYER_SPEED.far;
   let farZone = 0, farFade = 0;
   if (state !== "title" && state !== "settings" && zoneStarts) {
     ZONE_AT.forEach((at, i) => {
@@ -1059,7 +1062,7 @@ function drawWorld() {
     ctx.fillRect(Math.round(w.x), Math.round(w.y), Math.round(w.len), 1);
   }
   for (const p of (state === "play" || state === "crash") ? pies : []) {
-    ctx.drawImage(IMG.pie, Math.round(p.x), Math.round(p.y + Math.sin(t / 10) * 1.5));
+    ctx.drawImage(IMG.pie, snap(p.x), Math.round(p.y + Math.sin(t / 10) * 1.5));
   }
   for (const o of obstacles || []) {
     const f = o.kind.frames;
@@ -1069,11 +1072,11 @@ function drawWorld() {
       const glow = glowOf(im, "#fff3b0");
       for (const [ring, alpha] of [[2, 0.3], [1, 0.75]]) {
         ctx.globalAlpha = alpha * (0.8 + 0.2 * Math.sin(t / 6));
-        for (const [gx, gy] of [[-ring, 0], [ring, 0], [0, -ring], [0, ring]]) ctx.drawImage(glow, Math.round(o.x) + gx, o.y + gy);
+        for (const [gx, gy] of [[-ring, 0], [ring, 0], [0, -ring], [0, ring]]) ctx.drawImage(glow, snap(o.x) + gx, o.y + gy);
       }
       ctx.globalAlpha = 1;
     }
-    ctx.drawImage(im, Math.round(o.x), o.y);
+    ctx.drawImage(im, snap(o.x), o.y);
   }
 
   // Dan
@@ -1442,13 +1445,25 @@ addEventListener("pointerup", e => {
 addEventListener("resize", () => { if (typer.style.display === "block") placeTyper(field === "name" ? NAME_BOX : EMAIL_BOX); });
 
 // ----------------------------------------------------------------- main loop
-// Fixed 60 updates a second, whatever the screen's refresh rate.
-let last = performance.now(), acc = 0;
+// Fixed 60 updates a second, whatever the screen's refresh rate. On faster screens (120Hz
+// iPads) and uneven frames, the scrolling is drawn part way between the last two updates,
+// so it moves smoothly instead of stuttering.
+const STEP = 1000 / 60;
+let last = performance.now(), acc = 0, moved = 0;
 function frame(now) {
   acc += Math.min(250, now - last);
   last = now;
-  while (acc >= 1000 / 60) { update(); acc -= 1000 / 60; }
-  draw();
+  while (acc >= STEP) { const before = distance; update(); acc -= STEP; moved = distance - before; }
+  const back = state === "play" || state === "title" || state === "board" ? moved * (1 - acc / STEP) : 0;
+  if (back > 0 && back < 20) {
+    distance -= back;                                   // draw the world a fraction of a step behind
+    for (const o of obstacles) o.x += back;
+    for (const p of pies) p.x += back;
+    draw();
+    distance += back;
+    for (const o of obstacles) o.x -= back;
+    for (const p of pies) p.x -= back;
+  } else draw();
   requestAnimationFrame(frame);
 }
 
