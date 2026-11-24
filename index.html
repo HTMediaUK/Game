@@ -55,12 +55,13 @@ let S = 1;                               // integer scale from 320x180 to the sc
 // Fill the screen: the game is 320 wide; on screens squarer than 16:9 (an iPad is 4:3) the view
 // grows taller, the world sits in the middle, and the sky and ground carry on above and below.
 // VIEW_H is the visible height and OFF_Y where the 180-tall world starts within it.
-let VIEW_H = H, OFF_Y = 0;
+let VIEW_H = H, OFF_Y = 0, UI_SHIFT = 0;
 function resize() {
   const fit = Math.min(innerWidth / W, innerHeight / H);
   VIEW_H = innerWidth / innerHeight < W / H ? Math.round(H * (innerHeight / H) / (innerWidth / W)) : H;
   VIEW_H = Math.min(VIEW_H, 260);                       // very tall screens get small bars instead
-  OFF_Y = Math.round((VIEW_H - H) * 0.55);              // a little more sky than ground
+  OFF_Y = VIEW_H - H;                                   // all the extra height goes to the sky
+  UI_SHIFT = Math.round((VIEW_H - H) / 2);              // menus move up to sit centred on screen
   const scale = Math.min(innerWidth / W, innerHeight / VIEW_H);
   S = Math.max(1, Math.ceil(scale));                     // draw crisp at a whole-number scale...
   canvas.width = W * S;
@@ -69,22 +70,38 @@ function resize() {
   canvas.style.height = Math.floor(VIEW_H * scale) + "px";
 }
 
-// Carry the world's top row up and its bottom row down into the extra height (sky and ground).
+// On taller screens, carry the sky up into the extra height and float a second layer of
+// clouds through it, so the space above reads as open sky rather than an empty band.
 function extendWorld() {
-  if (OFF_Y <= 0 && VIEW_H <= H) return;
+  if (OFF_Y <= 0) return;
   ctx.save();
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.imageSmoothingEnabled = false;
-  if (OFF_Y > 0) ctx.drawImage(canvas, 0, OFF_Y * S, W * S, S, 0, 0, W * S, OFF_Y * S);
-  const below = VIEW_H - H - OFF_Y;
-  if (below > 0) ctx.drawImage(canvas, 0, (OFF_Y + H - 1) * S, W * S, S, 0, (OFF_Y + H) * S, W * S, below * S);
+  ctx.drawImage(canvas, 0, OFF_Y * S, W * S, S, 0, 0, W * S, OFF_Y * S);   // the sky's top colour
+  ctx.setTransform(S, 0, 0, S, 0, OFF_Y * S);
+  ctx.beginPath(); ctx.rect(0, -OFF_Y, W, OFF_Y); ctx.clip();
+  if (OFF_Y >= 20) {
+    const o = Math.floor(t * 0.03 + distance * 0.012 + 140) % W;           // higher clouds drift slower
+    ctx.globalAlpha = 0.85;
+    ctx.drawImage(IMG.clouds, -o, -OFF_Y - 6);
+    ctx.drawImage(IMG.clouds, W - o, -OFF_Y - 6);
+    ctx.globalAlpha = 1;
+  }
   ctx.restore();
 }
 
 // Draw something pinned to the real top of the screen rather than to the world.
 function atScreenTop(fn) {
   ctx.save();
-  ctx.translate(0, -OFF_Y);
+  ctx.setTransform(S, 0, 0, S, 0, 0);
+  fn();
+  ctx.restore();
+}
+
+// Draw menus and cards centred on the screen rather than on the world.
+function centred(fn) {
+  ctx.save();
+  ctx.translate(0, -UI_SHIFT);
   fn();
   ctx.restore();
 }
@@ -769,7 +786,7 @@ const SETTINGS = [
 
 function drawSettings() {
   ctx.fillStyle = "rgba(14,12,20,0.75)";
-  ctx.fillRect(0, -OFF_Y, W, VIEW_H);
+  ctx.fillRect(0, -VIEW_H, W, VIEW_H * 3);
   panel(40, 18, 240, 144);
   textSans("SETTINGS", 54, 32, 11);
   text("for HT staff", 266, 32, 5, "#8f8a9e", "right");
@@ -798,7 +815,11 @@ function drawRingSelect() {
   g.addColorStop(0.5, "rgba(14,12,20,0.6)");
   g.addColorStop(1, "rgba(14,12,20,0.35)");
   ctx.fillStyle = g;
-  ctx.fillRect(0, -OFF_Y, W, VIEW_H);
+  ctx.fillRect(0, -VIEW_H, W, VIEW_H * 3);
+  centred(() => drawTitleUI());
+}
+
+function drawTitleUI() {
   const c = who();
 
   // title lockup
@@ -1084,6 +1105,8 @@ function draw() {
 
   if (state === "play" || state === "crash") drawHud();
 
+  ctx.save();
+  ctx.translate(0, -UI_SHIFT);                              // menus and cards sit centred on screen
   if (state === "crash") {
     text("AHH, SHITE!", W / 2, 60, 18, "#ff6b6b");
   }
@@ -1107,7 +1130,7 @@ function draw() {
     if (emailError) text("That email doesn't look right. Check it and try again.", W / 2, 122, 6, "#ff8a8a");
     const ready = field === "name" ? nameText.trim() : emailText;
     if (isTouch) {                                         // iPad: tap the boxes to type, then SAVE
-      if (!nameText && !emailText) text("Tap a box to type", W / 2, 50.5, 5, "#ffe2b0");
+      if (!nameText && !emailText) text("Tap a box to type", W / 2, 120.5, 5, "#ffe2b0");
       ctx.fillStyle = nameText.trim() && emailText ? who().colour : "#5a5466";
       ctx.fillRect(SAVE_BTN.x, SAVE_BTN.y, SAVE_BTN.w, SAVE_BTN.h);
       textSans("SAVE", W / 2, SAVE_BTN.y + 7.5, 8, "#fff", "center");
@@ -1119,6 +1142,7 @@ function draw() {
   }
   if (state === "board") drawScoreSlate();
   if (state === "settings") drawSettings();
+  ctx.restore();
 }
 
 // ----------------------------------------------------------------- input
@@ -1230,7 +1254,7 @@ function toGame(e) {
 
 function placeTyper(box) {                        // lay the invisible text box over the drawn one
   const r = canvas.getBoundingClientRect(), k = r.width / W;
-  Object.assign(typer.style, { display: "block", left: r.left + box.x * k + "px", top: r.top + (box.y + OFF_Y) * k + "px",
+  Object.assign(typer.style, { display: "block", left: r.left + box.x * k + "px", top: r.top + (box.y + OFF_Y - UI_SHIFT) * k + "px",
     width: box.w * k + "px", height: box.h * k + "px" });
 }
 function focusTyper(which) {
@@ -1258,6 +1282,7 @@ typer.addEventListener("input", () => {
 canvas.addEventListener("pointerdown", e => {
   canvas.focus();
   const p = toGame(e);
+  if (state !== "play") p.y += UI_SHIFT;                    // menus are drawn centred on screen
   downAt = p;
   if (state === "play") { e.preventDefault(); pressStart(); return; }
   if (state === "title" && Math.hypot(p.x - 30, p.y - 28) < 15) logoHold = performance.now();   // staff: hold the logo
@@ -1265,6 +1290,7 @@ canvas.addEventListener("pointerdown", e => {
 addEventListener("pointerup", e => {
   jumpHeld = false;
   const p = downAt ? toGame(e) : null;
+  if (p && state !== "play") p.y += UI_SHIFT;
   const start = downAt;
   downAt = null;
   if (logoHold) {
