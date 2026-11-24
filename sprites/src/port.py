@@ -16,6 +16,7 @@ from pathlib import Path
 from PIL import Image
 
 sys.path.insert(0, str(Path(__file__).parent))
+from soil import deepen  # noqa: E402
 import backdrop as bd  # noqa: E402
 import ht_logo  # noqa: E402
 
@@ -194,6 +195,7 @@ def port_ground():
         c = rng.choice(("#a9adb5", "#8c9098"))
         img.putpixel((x, y), hexc(c))
         img.putpixel(((x + 1) % W, y), hexc(c))
+    deepen(img, hexc("#9a9ea6"), hexc("#7a7e86"), seed=5)  # older concrete below
     return img
 
 
